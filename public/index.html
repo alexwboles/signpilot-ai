@@ -4,16 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SignPilot AI — local-first e-signature for trades</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-  <div class="brand"><svg class="logo" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> <strong>SignPilot AI</strong> <span class="tag">100% local</span></div>
-  <nav>
-    <a href="#/" id="nav-list">Documents</a>
-    <a href="#/new" id="nav-new" class="btn">+ New document</a>
-  </nav>
+    <div class="brand"><svg class="logo" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> <strong>SignPilot <span style="color:#e8b25e">AI</span></strong> <span class="tag">100% local</span></div>
+    <nav>
+      <a href="#/" id="nav-list">Documents</a>
+      <a href="#/new" id="nav-new" class="btn">+ New document</a>
+    </nav>
   </div>
 </header>
 
@@ -21,24 +24,41 @@
   <!-- list view -->
   <section id="view-list" class="view">
     <h1>Documents</h1>
-    <p class="muted">Create an approval, send it to the client, capture signatures — all in this browser. No accounts, no per-envelope fees.</p>
+    <p class="lede">Create an approval, send it to the client, capture signatures — all in this browser. No accounts, no per-envelope fees.</p>
+    <div class="pipe-rail" aria-label="Document lifecycle">
+      <div class="pipe-step" data-s="draft">
+        <div class="pipe-num" id="pipe-draft">0</div>
+        <div><div class="pipe-label">Draft</div><div class="muted" style="font-size:12.5px">being prepared</div></div>
+      </div>
+      <div class="pipe-step" data-s="sent">
+        <div class="pipe-num" id="pipe-sent">0</div>
+        <div><div class="pipe-label">Sent</div><div class="muted" style="font-size:12.5px">awaiting signatures</div></div>
+      </div>
+      <div class="pipe-step" data-s="signed">
+        <div class="pipe-num" id="pipe-signed">0</div>
+        <div><div class="pipe-label">Signed</div><div class="muted" style="font-size:12.5px">sealed &amp; complete</div></div>
+      </div>
+    </div>
     <div id="doc-list" class="cards"></div>
   </section>
 
   <!-- editor view -->
   <section id="view-edit" class="view hidden">
     <h1>New document</h1>
-    <label>Template
-      <select id="f-template"></select>
-    </label>
-    <p class="muted" id="template-blurb"></p>
-    <label>Document title <input id="f-title" type="text" placeholder="e.g. Smith kitchen remodel — quote approval"></label>
-    <div id="template-fields"></div>
-    <div class="row">
-      <button id="btn-save-doc" class="btn primary">Save draft</button>
-      <a href="#/" class="btn ghost">Cancel</a>
+    <p class="lede">Pick a template, fill in the fields, save a draft.</p>
+    <div class="sheet">
+      <label>Template
+        <select id="f-template"></select>
+      </label>
+      <p class="template-blurb" id="template-blurb"></p>
+      <label>Document title <input id="f-title" type="text" placeholder="e.g. Smith kitchen remodel — quote approval"></label>
+      <div id="template-fields"></div>
+      <div class="row">
+        <button id="btn-save-doc" class="btn primary">Save draft</button>
+        <a href="#/" class="btn ghost">Cancel</a>
+      </div>
+      <p class="muted" id="edit-msg"></p>
     </div>
-    <p class="muted" id="edit-msg"></p>
   </section>
 
   <!-- detail view -->
@@ -52,12 +72,12 @@
       <h3>Send to client</h3>
       <p class="muted">Open this link on the client's device (same network) or hand them this device:</p>
       <div class="row">
-        <input id="sign-link" readonly>
+        <input id="sign-link" readonly aria-label="Signing link">
         <button id="btn-copy-link" class="btn">Copy</button>
       </div>
     </div>
     <div class="row" id="doc-actions"></div>
-    <h3>Audit trail</h3>
+    <h3 class="doc-audit-head">Audit trail</h3>
     <ul id="doc-audit" class="audit"></ul>
     <div id="pdf-box" class="panel hidden">
       <h3>Signed PDF</h3>
@@ -70,8 +90,9 @@
   <section id="view-sign" class="view hidden">
     <h1 id="sign-title"></h1>
     <div id="sign-body" class="paper"></div>
-    <div class="panel">
+    <div class="panel sign-desk">
       <h3>Sign here</h3>
+      <p class="muted">Draw your signature on the line below. It is captured on this device only.</p>
       <div class="row">
         <label>Signing as
           <select id="sign-role">
@@ -81,7 +102,7 @@
         </label>
         <label>Printed name <input id="sign-name" type="text" placeholder="Full name"></label>
       </div>
-      <canvas id="sigpad" width="600" height="200"></canvas>
+      <canvas id="sigpad" width="600" height="200" aria-label="Signature pad"></canvas>
       <div class="row">
         <button id="btn-clear-sig" class="btn ghost">Clear</button>
         <button id="btn-sign" class="btn primary">Sign document</button>

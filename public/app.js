@@ -83,15 +83,20 @@
     show("view-list");
     api("/api/documents").then(function (j) {
       var el = document.getElementById("doc-list");
+      var counts = { draft: 0, sent: 0, signed: 0 };
+      j.documents.forEach(function (d) { if (counts[d.status] != null) counts[d.status]++; });
+      document.getElementById("pipe-draft").textContent = counts.draft;
+      document.getElementById("pipe-sent").textContent = counts.sent;
+      document.getElementById("pipe-signed").textContent = counts.signed;
       if (!j.documents.length) {
         el.innerHTML = '<p class="muted">No documents yet. <a href="#/new">Create your first approval</a>.</p>';
         return;
       }
       el.innerHTML = j.documents.map(function (d) {
-        return '<div class="card"><h3><a href="#/doc/' + d.id + '">' + esc(d.title) + "</a></h3>" +
-          '<div class="muted">' + esc(d.number) + " · " + esc(d.id && d.template) + "</div>" +
-          '<div style="margin-top:10px"><span class="pill ' + d.status + '">' + d.status + "</span></div>" +
-          '<div class="muted" style="margin-top:6px;font-size:.82rem">created ' + esc(d.createdAt.slice(0, 10)) + "</div></div>";
+        return '<div class="card status-' + d.status + '"><h3><a href="#/doc/' + d.id + '">' + esc(d.title) + "</a></h3>" +
+          '<div class="docnum">' + esc(d.number) + " · " + esc(d.id && d.template) + "</div>" +
+          '<div class="card-foot"><span class="pill ' + d.status + '">' + d.status + '</span>' +
+          '<span class="when">created ' + esc(d.createdAt.slice(0, 10)) + "</span></div></div>";
       }).join("");
     }).catch(function (e) {
       document.getElementById("doc-list").innerHTML = '<p class="muted">Error: ' + esc(e.message) + "</p>";
@@ -144,10 +149,17 @@
   /* ---------- detail ---------- */
   function sigBlock(doc, role, label) {
     var s = doc.signatures.find(function (x) { return x.role === role; });
-    if (!s) return '<div class="sig-block"><strong>' + label + ":</strong> <span class='muted'>not yet signed</span></div>";
-    return '<div class="sig-block"><strong>' + label + ":</strong> " + esc(s.name) +
-      ' <span class="muted">(' + esc(s.signedAt.slice(0, 16).replace("T", " ")) + ")</span><br>" +
+    if (!s) return '<div class="sig-block pending"><strong>' + label + ":</strong> " +
+      '<div class="awaiting">Awaiting signature — signature line is open.</div></div>';
+    return '<div class="sig-block"><span class="sealed-mark">SEALED</span><strong>' + label + ":</strong>" +
+      '<div class="sig-name">' + esc(s.name) + "</div>" +
+      '<div class="muted">signed ' + esc(s.signedAt.slice(0, 16).replace("T", " ")) + "</div>" +
       '<img src="' + s.signature + '" alt="signature"></div>';
+  }
+
+  function letterhead(d) {
+    return '<div class="letterhead"><div class="lh-brand">SignPilot <span>AI</span> · Approval Document</div>' +
+      '<div class="lh-num">' + esc(d.number) + "</div></div>";
   }
 
   function renderDoc(id) {
@@ -160,6 +172,7 @@
       pill.textContent = d.status;
       var paras = T.renderBody(d.template, d.fields);
       document.getElementById("doc-body").innerHTML =
+        letterhead(d) +
         '<p class="lead">' + esc(paras[0]) + "</p>" +
         paras.slice(1).map(function (p) { return "<p>" + esc(p) + "</p>"; }).join("") +
         '<p class="muted">Document ' + esc(d.number) + " · created " + esc(d.createdAt.slice(0, 10)) + "</p>" +
@@ -234,6 +247,7 @@
       document.getElementById("sign-title").textContent = d.title;
       var paras = T.renderBody(d.template, d.fields);
       document.getElementById("sign-body").innerHTML =
+        letterhead(d) +
         '<p class="lead">' + esc(paras[0]) + "</p>" +
         paras.slice(1).map(function (p) { return "<p>" + esc(p) + "</p>"; }).join("");
       document.getElementById("btn-sign").onclick = function () {
