@@ -1,0 +1,1 @@
+{"description":"Local-first e-signature and approval documents for tradespeople - no accounts, no per-envelope fees","engines":{"node":">=16"},"license":"MIT","main":"server.js","name":"signpilot-ai","scripts":{"start":"node server.js","test":"bash test/smoke.sh && bash test/e2e.sh"},"version":"0.1.0"}

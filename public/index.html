@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SignPilot AI — local-first e-signature for trades</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">✍️ <strong>SignPilot AI</strong> <span class="tag">100% local</span></div>
+  <nav>
+    <a href="#/" id="nav-list">Documents</a>
+    <a href="#/new" id="nav-new" class="btn">+ New document</a>
+  </nav>
+</header>
+
+<main id="app">
+  <!-- list view -->
+  <section id="view-list" class="view">
+    <h1>Documents</h1>
+    <p class="muted">Create an approval, send it to the client, capture signatures — all in this browser. No accounts, no per-envelope fees.</p>
+    <div id="doc-list" class="cards"></div>
+  </section>
+
+  <!-- editor view -->
+  <section id="view-edit" class="view hidden">
+    <h1>New document</h1>
+    <label>Template
+      <select id="f-template"></select>
+    </label>
+    <p class="muted" id="template-blurb"></p>
+    <label>Document title <input id="f-title" type="text" placeholder="e.g. Smith kitchen remodel — quote approval"></label>
+    <div id="template-fields"></div>
+    <div class="row">
+      <button id="btn-save-doc" class="btn primary">Save draft</button>
+      <a href="#/" class="btn ghost">Cancel</a>
+    </div>
+    <p class="muted" id="edit-msg"></p>
+  </section>
+
+  <!-- detail view -->
+  <section id="view-doc" class="view hidden">
+    <div class="row between">
+      <h1 id="doc-title"></h1>
+      <span id="doc-status" class="pill"></span>
+    </div>
+    <div id="doc-body" class="paper"></div>
+    <div id="send-box" class="panel hidden">
+      <h3>Send to client</h3>
+      <p class="muted">Open this link on the client's device (same network) or hand them this device:</p>
+      <div class="row">
+        <input id="sign-link" readonly>
+        <button id="btn-copy-link" class="btn">Copy</button>
+      </div>
+    </div>
+    <div class="row" id="doc-actions"></div>
+    <h3>Audit trail</h3>
+    <ul id="doc-audit" class="audit"></ul>
+    <div id="pdf-box" class="panel hidden">
+      <h3>Signed PDF</h3>
+      <button id="btn-pdf" class="btn primary">Download signed PDF</button>
+      <p class="muted">Generated locally in your browser with pdf-lib (MIT). Includes signatures + audit trail.</p>
+    </div>
+  </section>
+
+  <!-- signing view -->
+  <section id="view-sign" class="view hidden">
+    <h1 id="sign-title"></h1>
+    <div id="sign-body" class="paper"></div>
+    <div class="panel">
+      <h3>Sign here</h3>
+      <div class="row">
+        <label>Signing as
+          <select id="sign-role">
+            <option value="client">Client</option>
+            <option value="contractor">Contractor</option>
+          </select>
+        </label>
+        <label>Printed name <input id="sign-name" type="text" placeholder="Full name"></label>
+      </div>
+      <canvas id="sigpad" width="600" height="200"></canvas>
+      <div class="row">
+        <button id="btn-clear-sig" class="btn ghost">Clear</button>
+        <button id="btn-sign" class="btn primary">Sign document</button>
+      </div>
+      <p class="muted" id="sign-msg"></p>
+    </div>
+  </section>
+</main>
+
+<footer class="muted">SignPilot AI — signatures are captured and stored in this browser only. Not legal advice; use for everyday trade approvals.</footer>
+
+<script src="vendor/pdf-lib.min.js"></script>
+<script src="templates.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
