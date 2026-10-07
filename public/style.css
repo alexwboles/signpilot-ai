@@ -15,7 +15,7 @@
   --gold: #a16207;
   --gold-soft: #faf3e3;
   --bar: #221b14;
-  --radius: 14px;
+  --radius: 0;
   --shadow: 0 1px 2px rgba(32, 26, 20, .06), 0 10px 28px rgba(32, 26, 20, .07);
   --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --serif: Georgia, "Times New Roman", serif;
@@ -47,10 +47,10 @@ h3 { font-size: 15px; margin: 0 0 10px; letter-spacing: -.1px; }
 .brand strong { color: #fff; }
 .brand .tag {
   font-size: 10.5px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
-  color: #221b14; background: #e8b25e; border-radius: 5px; padding: 3px 8px;
+  color: #221b14; background: #e8b25e; border-radius: 0; padding: 3px 8px;
 }
 .topbar nav { display: flex; align-items: center; gap: 10px; }
-.topbar nav a { color: #cfc3ae; text-decoration: none; font-size: 14px; font-weight: 550; padding: 8px 10px; border-radius: 8px; }
+.topbar nav a { color: #cfc3ae; text-decoration: none; font-size: 14px; font-weight: 550; padding: 8px 10px; border-radius: 0; }
 .topbar nav a:hover { color: #fff; background: rgba(255,255,255,.07); }
 .topbar nav a.btn {
   background: var(--seal); color: #fff; padding: 9px 16px; font-weight: 650;
@@ -111,14 +111,14 @@ main#app { max-width: 1120px; margin: 0 auto; padding: 30px 24px 70px; }
 .card.status-signed::after {
   content: "SIGNED"; position: absolute; right: 14px; top: 12px;
   font-size: 11px; font-weight: 800; letter-spacing: 2px; color: var(--seal);
-  border: 2px solid var(--seal); border-radius: 8px; padding: 4px 9px;
+  border: 2px solid var(--seal); border-radius: 0; padding: 4px 9px;
   transform: rotate(9deg); opacity: .5; pointer-events: none;
 }
 
 /* ---------- status pills ---------- */
 .pill {
   display: inline-block; font-size: 11.5px; font-weight: 750; text-transform: uppercase;
-  letter-spacing: 1px; border-radius: 999px; padding: 4px 12px; white-space: nowrap;
+  letter-spacing: 1px; border-radius: 0; padding: 4px 12px; white-space: nowrap;
   background: #f1ebdd; color: var(--ink-soft); border: 1px solid var(--line);
 }
 .pill.draft { background: var(--gold-soft); color: #854d0e; border-color: #ead9ae; }
@@ -127,7 +127,7 @@ main#app { max-width: 1120px; margin: 0 auto; padding: 30px 24px 70px; }
 
 /* ---------- buttons & inputs ---------- */
 .btn {
-  display: inline-block; border-radius: 10px; font-weight: 650; font-size: 14.5px;
+  display: inline-block; border-radius: 0; font-weight: 650; font-size: 14.5px;
   padding: 10px 20px; border: 1px solid transparent; text-decoration: none; color: var(--ink);
   background: var(--sheet); font-family: var(--sans); cursor: pointer;
   transition: transform .12s, box-shadow .15s, background .15s, border-color .15s;
@@ -142,7 +142,7 @@ label { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink-so
 label input, label select, label textarea {
   display: block; margin-top: 6px; width: 100%;
   font-family: var(--sans); font-size: 14.5px; color: var(--ink);
-  border: 1px solid #d8cdb8; border-radius: 10px; background: #fff; padding: 10px 13px;
+  border: 1px solid #d8cdb8; border-radius: 0; background: #fff; padding: 10px 13px;
   transition: border-color .15s, box-shadow .15s;
 }
 label input:focus, label select:focus, label textarea:focus {
@@ -157,18 +157,18 @@ label textarea { resize: vertical; min-height: 90px; }
 }
 .template-blurb {
   border-left: 3px solid var(--seal); padding: 8px 14px; background: var(--seal-soft);
-  border-radius: 0 10px 10px 0; color: var(--ink-soft); font-size: 14px; margin: 10px 0 4px;
+  border-radius: 0; color: var(--ink-soft); font-size: 14px; margin: 10px 0 4px;
 }
 .template-blurb:empty { display: none; }
 
 /* ---------- letterhead document ---------- */
 .paper {
-  background: var(--sheet); border: 1px solid var(--line); border-radius: 6px;
+  background: var(--sheet); border: 1px solid var(--line); border-radius: 0;
   box-shadow: var(--shadow); padding: 46px 52px; max-width: 800px; margin: 18px 0 24px;
   font-family: var(--serif); color: #2a231b; position: relative;
 }
 .paper::before {
-  content: ""; position: absolute; inset: 0 0 auto 0; height: 6px; border-radius: 6px 6px 0 0;
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 6px; border-radius: 0;
   background: var(--seal);
 }
 .letterhead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
@@ -182,7 +182,7 @@ label textarea { resize: vertical; min-height: 90px; }
 
 /* signature blocks */
 .sig-block {
-  margin-top: 26px; padding: 18px 20px 14px; border: 1px dashed #cfc3ae; border-radius: 10px;
+  margin-top: 26px; padding: 18px 20px 14px; border: 1px dashed #cfc3ae; border-radius: 0;
   font-family: var(--sans); background: #fffdf8; position: relative;
 }
 .sig-block strong { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
@@ -239,7 +239,7 @@ label textarea { resize: vertical; min-height: 90px; }
   border-color: #e8b25e; box-shadow: 0 0 0 3px rgba(232, 178, 94, .18);
 }
 #sigpad {
-  width: 100%; height: 200px; border-radius: 10px; display: block; margin-top: 12px;
+  width: 100%; height: 200px; border-radius: 0; display: block; margin-top: 12px;
   background: repeating-linear-gradient(#fdfbf6 0 31px, #e5dcc8 31px 32px);
   border: 2px dashed #6b5f4c; cursor: crosshair; touch-action: none;
 }
