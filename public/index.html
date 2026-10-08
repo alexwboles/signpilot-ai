@@ -25,6 +25,16 @@
   <section id="view-list" class="view">
     <h1>Documents</h1>
     <p class="lede">Create an approval, send it to the client, capture signatures — all in this browser. No accounts, no per-envelope fees.</p>
+    <div class="toolbar">
+      <input id="doc-search" type="search" placeholder="Search by title, client, or number…" aria-label="Search documents">
+      <select id="doc-status-filter" aria-label="Filter by status">
+        <option value="">All statuses</option>
+        <option value="draft">Draft</option>
+        <option value="sent">Sent</option>
+        <option value="signed">Signed</option>
+      </select>
+      <a class="btn ghost" href="/api/documents/export.csv" download>Export CSV</a>
+    </div>
     <div class="pipe-rail" aria-label="Document lifecycle">
       <div class="pipe-step" data-s="draft">
         <div class="pipe-num" id="pipe-draft">0</div>

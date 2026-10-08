@@ -126,10 +126,40 @@
     return errs;
   }
 
+  /* Quote-expiry helpers. Only quote-approval carries a validity window
+   * (validDays field); other templates return null. Pure functions. */
+  function quoteExpiryDate(createdAtISO, fields) {
+    if (!createdAtISO) return null;
+    var days = Number(fields && fields.validDays);
+    if (!isFinite(days) || days <= 0) days = 30;
+    var d = new Date(createdAtISO);
+    if (isNaN(d.getTime())) return null;
+    d.setDate(d.getDate() + Math.floor(days));
+    return d.toISOString().slice(0, 10);
+  }
+
+  function daysUntil(dateISO) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateISO))) return null;
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var t = new Date(dateISO + "T00:00:00");
+    return Math.round((t.getTime() - today.getTime()) / 86400000);
+  }
+
+  function expiryInfo(templateId, createdAtISO, fields) {
+    if (templateId !== "quote-approval") return null;
+    var on = quoteExpiryDate(createdAtISO, fields);
+    if (!on) return null;
+    return { expiresOn: on, daysLeft: daysUntil(on) };
+  }
+
   return {
     TEMPLATES: TEMPLATES,
     renderBody: renderBody,
     validateFields: validateFields,
-    todayISO: todayISO
+    todayISO: todayISO,
+    quoteExpiryDate: quoteExpiryDate,
+    daysUntil: daysUntil,
+    expiryInfo: expiryInfo
   };
 });

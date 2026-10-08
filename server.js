@@ -142,13 +142,36 @@ async function handle(req, res) {
     return sendJSON(res, 200, { templates: list });
   }
 
+  // CSV export of the document ledger (signature blobs omitted)
+  if (m === "GET" && p === "/api/documents/export.csv") {
+    const docs = readDocs();
+    const cell = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+    const signer = (d, role) => {
+      const s = d.signatures.find((x) => x.role === role);
+      return s ? s.name + " (" + s.signedAt.slice(0, 10) + ")" : "";
+    };
+    const rows = [
+      ["number", "title", "template", "status", "client", "created", "sent", "signed", "clientSigner", "contractorSigner"]
+    ].concat(docs.map((d) => [
+      d.number, d.title, d.template, d.status, (d.fields || {}).clientName || "",
+      (d.createdAt || "").slice(0, 10), (d.sentAt || "").slice(0, 10),
+      (d.signedAt || "").slice(0, 10), signer(d, "client"), signer(d, "contractor")
+    ]));
+    const body = rows.map((r) => r.map(cell).join(",")).join("\r\n");
+    res.writeHead(200, {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": 'attachment; filename="signpilot-documents.csv"'
+    });
+    return res.end("\uFEFF" + body);
+  }
+
   // document collection
   if (p === "/api/documents") {
     if (m === "GET") {
       const docs = readDocs().map((d) => ({
         id: d.id, number: d.number, template: d.template, title: d.title,
         status: d.status, createdAt: d.createdAt, sentAt: d.sentAt,
-        signedAt: d.signedAt,
+        signedAt: d.signedAt, fields: d.fields || {},
         signatures: d.signatures.map((s) => ({ role: s.role, name: s.name, signedAt: s.signedAt }))
       }));
       return sendJSON(res, 200, { documents: docs });
@@ -179,7 +202,7 @@ async function handle(req, res) {
   }
 
   // single document / sub-resources
-  const dm = /^\/api\/documents\/([^/]+)(\/(sign|audit))?$/.exec(p);
+  const dm = /^\/api\/documents\/([^/]+)(\/(sign|audit|duplicate))?$/.exec(p);
   if (dm) {
     const id = dm[1];
     const sub = dm[3] || null;
@@ -188,6 +211,37 @@ async function handle(req, res) {
     if (!doc) return sendJSON(res, 404, { ok: false, error: "document not found" });
 
     if (m === "GET" && !sub) return sendJSON(res, 200, { document: doc });
+
+    // duplicate any document into a fresh draft (new id + number)
+    if (m === "POST" && sub === "duplicate") {
+      const copy = JSON.parse(JSON.stringify(doc));
+      copy.id = newId();
+      copy.number = nextNumber(docs);
+      copy.title = doc.title + " (copy)";
+      copy.status = "draft";
+      copy.sentAt = null;
+      copy.signedAt = null;
+      copy.signatures = [];
+      copy.createdAt = nowISO();
+      copy.audit = [];
+      audit(copy, "created", "Draft duplicated from " + doc.number + ".");
+      docs.push(copy);
+      writeDocs(docs);
+      return sendJSON(res, 201, { ok: true, document: copy });
+    }
+
+    // delete is draft-only: sent/signed documents are records and must stay
+    if (m === "DELETE" && !sub) {
+      if (doc.status !== "draft") {
+        return sendJSON(res, 400, {
+          ok: false,
+          error: "only draft documents can be deleted (status: " + doc.status + ")"
+        });
+      }
+      const rest = docs.filter((d) => d.id !== id);
+      writeDocs(rest);
+      return sendJSON(res, 200, { ok: true, deleted: id });
+    }
 
     if (m === "GET" && sub === "audit") {
       return sendJSON(res, 200, { id: doc.id, number: doc.number, audit: doc.audit });

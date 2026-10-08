@@ -245,6 +245,21 @@ label textarea { resize: vertical; min-height: 90px; }
 }
 footer.muted { text-align: center; padding: 26px 16px 34px; font-size: 13px; }
 
+/* ---------- document list toolbar + badges + notices ---------- */
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 18px 0 6px; }
+.toolbar input[type="search"] { flex: 1 1 240px; padding: 10px 13px; font-size: 14.5px; font-family: var(--sans);
+  border: 1px solid #d8cdb8; border-radius: 0; background: #fff; color: var(--ink); }
+.toolbar select { padding: 10px 12px; font-size: 14px; font-family: var(--sans); border: 1px solid #d8cdb8;
+  border-radius: 0; background: #fff; color: var(--ink); }
+.notice { border-left: 4px solid var(--seal); background: #fdf7f4; padding: 12px 16px; margin: 0 0 18px; font-size: 14px; }
+.notice.warn { border-color: #b45309; background: #fffaf2; }
+.exp { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 0; margin-left: 8px; }
+.exp-ok { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+.exp-soon { background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; }
+.exp-over { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+.btn.danger { border-color: #b91c1c; color: #991b1b; }
+.btn.danger:hover { background: #fef2f2; border-color: #991b1b; }
+
 /* ---------- responsive ---------- */
 @media (max-width: 720px) {
   .pipe-rail { grid-template-columns: 1fr; }

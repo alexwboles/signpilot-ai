@@ -79,29 +79,62 @@
   var pad = makePad(document.getElementById("sigpad"));
 
   /* ---------- list ---------- */
+  var allDocs = [];
+
+  function expiryBadge(d) {
+    if (d.template !== "quote-approval" || d.status === "signed") return "";
+    var info = T.expiryInfo("quote-approval", d.createdAt, d.fields || {});
+    if (!info || info.daysLeft == null) return "";
+    var cls = info.daysLeft < 0 ? "exp-over" : (info.daysLeft <= 7 ? "exp-soon" : "exp-ok");
+    var txt = info.daysLeft < 0 ? "expired " + (-info.daysLeft) + "d ago"
+      : info.daysLeft === 0 ? "expires today" : "expires in " + info.daysLeft + "d";
+    return '<span class="exp ' + cls + '">' + esc(txt) + "</span>";
+  }
+
+  function cardHtml(d) {
+    return '<div class="card status-' + d.status + '"><h3><a href="#/doc/' + d.id + '">' + esc(d.title) + "</a></h3>" +
+      '<div class="docnum">' + esc(d.number) + " · " + esc(d.template) + "</div>" +
+      '<div class="card-foot"><span class="pill ' + d.status + '">' + d.status + '</span>' +
+      expiryBadge(d) +
+      '<span class="when">created ' + esc((d.createdAt || "").slice(0, 10)) + "</span></div></div>";
+  }
+
+  function applyListFilter() {
+    var q = document.getElementById("doc-search").value.trim().toLowerCase();
+    var st = document.getElementById("doc-status-filter").value;
+    var list = allDocs.filter(function (d) {
+      if (st && d.status !== st) return false;
+      if (!q) return true;
+      var hay = (d.title + " " + d.number + " " + ((d.fields || {}).clientName || "") + " " + d.template).toLowerCase();
+      return hay.indexOf(q) !== -1;
+    });
+    var el = document.getElementById("doc-list");
+    if (!allDocs.length) {
+      el.innerHTML = '<p class="muted">No documents yet. <a href="#/new">Create your first approval</a>.</p>';
+    } else if (!list.length) {
+      el.innerHTML = '<p class="muted">No documents match your search.</p>';
+    } else {
+      el.innerHTML = list.map(cardHtml).join("");
+    }
+  }
+
   function renderList() {
     show("view-list");
     api("/api/documents").then(function (j) {
-      var el = document.getElementById("doc-list");
+      allDocs = j.documents;
       var counts = { draft: 0, sent: 0, signed: 0 };
       j.documents.forEach(function (d) { if (counts[d.status] != null) counts[d.status]++; });
       document.getElementById("pipe-draft").textContent = counts.draft;
       document.getElementById("pipe-sent").textContent = counts.sent;
       document.getElementById("pipe-signed").textContent = counts.signed;
-      if (!j.documents.length) {
-        el.innerHTML = '<p class="muted">No documents yet. <a href="#/new">Create your first approval</a>.</p>';
-        return;
-      }
-      el.innerHTML = j.documents.map(function (d) {
-        return '<div class="card status-' + d.status + '"><h3><a href="#/doc/' + d.id + '">' + esc(d.title) + "</a></h3>" +
-          '<div class="docnum">' + esc(d.number) + " · " + esc(d.id && d.template) + "</div>" +
-          '<div class="card-foot"><span class="pill ' + d.status + '">' + d.status + '</span>' +
-          '<span class="when">created ' + esc(d.createdAt.slice(0, 10)) + "</span></div></div>";
-      }).join("");
+      applyListFilter();
     }).catch(function (e) {
       document.getElementById("doc-list").innerHTML = '<p class="muted">Error: ' + esc(e.message) + "</p>";
     });
   }
+
+  document.getElementById("doc-search").addEventListener("input", applyListFilter);
+  document.getElementById("doc-status-filter").addEventListener("change", applyListFilter);
 
   /* ---------- editor ---------- */
   function fieldInput(fd) {
@@ -171,8 +204,20 @@
       pill.className = "pill " + d.status;
       pill.textContent = d.status;
       var paras = T.renderBody(d.template, d.fields);
+      var expiryHtml = "";
+      if (d.template === "quote-approval" && d.status !== "signed") {
+        var info = T.expiryInfo("quote-approval", d.createdAt, d.fields || {});
+        if (info && info.daysLeft != null) {
+          var msg = info.daysLeft < 0
+            ? "This quote expired " + (-info.daysLeft) + " days ago (" + info.expiresOn + ")."
+            : info.daysLeft === 0
+              ? "This quote expires today (" + info.expiresOn + ")."
+              : "This quote is valid until " + info.expiresOn + " — " + info.daysLeft + " days left.";
+          expiryHtml = '<p class="notice' + (info.daysLeft <= 7 ? " warn" : "") + '">' + esc(msg) + "</p>";
+        }
+      }
       document.getElementById("doc-body").innerHTML =
-        letterhead(d) +
+        letterhead(d) + expiryHtml +
         '<p class="lead">' + esc(paras[0]) + "</p>" +
         paras.slice(1).map(function (p) { return "<p>" + esc(p) + "</p>"; }).join("") +
         '<p class="muted">Document ' + esc(d.number) + " · created " + esc(d.createdAt.slice(0, 10)) + "</p>" +
@@ -191,6 +236,12 @@
           api("/api/documents/" + id, { method: "PATCH", body: { status: "sent" } })
             .then(function () { renderDoc(id); });
         });
+        btn("Delete draft", "ghost danger", function () {
+          if (!confirm("Delete draft " + d.number + "? This cannot be undone.")) return;
+          api("/api/documents/" + id, { method: "DELETE" })
+            .then(function () { location.hash = "#/"; })
+            .catch(function (e) { alert("Error: " + e.message); });
+        });
       }
       if (d.status === "sent") {
         btn("Open signing view", "primary", function () { location.hash = "#/sign/" + id; });
@@ -199,6 +250,11 @@
             .then(function () { renderDoc(id); });
         });
       }
+      btn("Duplicate", "ghost", function () {
+        api("/api/documents/" + id + "/duplicate", { method: "POST" })
+          .then(function (r) { location.hash = "#/doc/" + r.document.id; })
+          .catch(function (e) { alert("Error: " + e.message); });
+      });
       var back = document.createElement("a");
       back.className = "btn ghost"; back.href = "#/"; back.textContent = "Back to documents";
       actions.appendChild(back);

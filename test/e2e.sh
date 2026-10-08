@@ -91,5 +91,36 @@ echo "$EVS" | grep -q '^created,sent,signed,signed,completed' && ok "flow6: audi
 T6=$(curl -s -X PATCH "$BASE/api/documents/$ID" -H 'Content-Type: application/json' -d '{"status":"sent"}')
 echo "$T6" | grep -q 'invalid transition' && ok "flow6: signed doc refuses further transitions" || bad "flow6: ${T6:0:200}"
 
+# ---- Flow 7: duplicate a fully-signed doc -> clean draft copy ----
+D7=$(curl -s -X POST "$BASE/api/documents/$ID/duplicate" -H 'Content-Type: application/json')
+ID7=$(echo "$D7" | py "d['document']['id']")
+N7=$(echo "$D7" | py "d['document']['number']")
+G7=$(curl -s "$BASE/api/documents/$ID7")
+echo "$G7" | grep -q '"status":"draft"' && ok "flow7: duplicate of signed doc is a draft" || bad "flow7 status: ${G7:0:200}"
+echo "$G7" | py "d['document']['signatures']" | grep -q '\[\]' && ok "flow7: duplicate carries no signatures" || bad "flow7: signatures copied"
+F7=$(echo "$G7" | py "d['document']['fields']['changeDescription']")
+[ "$F7" = "Add heated floor in master bath" ] && ok "flow7: fields preserved in duplicate" || bad "flow7 fields: $F7"
+A7=$(curl -s "$BASE/api/documents/$ID7/audit")
+echo "$A7" | grep -q 'duplicated' && ok "flow7: audit records duplication" || bad "flow7 audit: ${A7:0:200}"
+
+# ---- Flow 8: delete draft removes doc; unknown id 404s ----
+D8=$(curl -s -X POST "$BASE/api/documents" -H 'Content-Type: application/json' \
+  -d '{"template":"quote-approval","fields":{"clientName":"Gone Guy","workDescription":"x","total":10}}')
+ID8=$(echo "$D8" | py "d['document']['id']")
+R8=$(curl -s -X DELETE "$BASE/api/documents/$ID8")
+echo "$R8" | grep -q "\"deleted\":\"$ID8\"" && ok "flow8: draft delete returns deleted id" || bad "flow8: ${R8:0:200}"
+G8=$(curl -s "$BASE/api/documents/$ID8")
+echo "$G8" | grep -q 'document not found' && ok "flow8: deleted doc no longer retrievable" || bad "flow8: ${G8:0:200}"
+X8=$(curl -s -X DELETE "$BASE/api/documents/does-not-exist")
+echo "$X8" | grep -q 'document not found' && ok "flow8: delete of unknown id 404s" || bad "flow8: ${X8:0:200}"
+
+# ---- Flow 9: CSV export reflects the ledger (signers, statuses, no blobs) ----
+CSV=$(curl -s "$BASE/api/documents/export.csv")
+echo "$CSV" | grep -q 'Jane Smith' && ok "flow9: CSV names client signer" || bad "flow9: signer missing"
+echo "$CSV" | grep -q 'signed' && ok "flow9: CSV records signed status" || bad "flow9: status missing"
+echo "$CSV" | grep -q 'data:image' && bad "flow9: CSV leaks signature blobs" || ok "flow9: CSV omits signature blobs"
+ROWS=$(echo "$CSV" | grep -c '^"SP-')
+[ "$ROWS" -ge 2 ] && ok "flow9: CSV has $ROWS document rows" || bad "flow9: row count $ROWS"
+
 echo "RESULT: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

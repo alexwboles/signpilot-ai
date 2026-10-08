@@ -10,7 +10,12 @@ Built as a free alternative to paid e-signature tools (and to AGPL-licensed opti
 - **Draw-to-sign canvas** — hand-rolled signature pad (no libraries), works with mouse, touch, and stylus
 - **Approval pipeline** — draft → sent → signed, with recall-to-draft and terminal signed state
 - **Signed PDF export** — generated locally in your browser with pdf-lib (MIT, vendored in `public/vendor/`); includes signatures and the full audit trail
-- **Audit trail** — every lifecycle event timestamped (created, sent, signed, completed, recalled)
+- **Audit trail** — every lifecycle event timestamped (created, sent, signed, completed, recalled, duplicated)
+- **Duplicate documents** — one click clones any document into a fresh draft (new number, no signatures)
+- **Quote expiry tracking** — quote-approval drafts show "expires in N days" badges and an in-document validity notice based on the quote's `validDays`
+- **Search + status filter** — find documents by title, client, number, or template across the list
+- **CSV export** — download the whole document ledger (`GET /api/documents/export.csv`) for bookkeeping; signature blobs never included
+- **Delete drafts** — remove unneeded drafts (sent/signed documents are permanent records)
 - **Shareable signing link** — open `#/sign/<id>` on the client's device on the same network, or hand them your device
 - **Printable** — print CSS for paper copies
 
@@ -34,7 +39,10 @@ No API keys. No network calls. Optional `OPENAI_API_KEY` is not used by this app
 - `GET /api/documents/:id`
 - `PATCH /api/documents/:id` — `{status: "sent"|"draft"}` (signed is terminal)
 - `POST /api/documents/:id/sign` — `{role: "client"|"contractor", name, signature}` (PNG data URL); both roles signed → `signed`
+- `POST /api/documents/:id/duplicate` — clone any document into a fresh draft (new id + number, no signatures)
+- `DELETE /api/documents/:id` — delete a draft only (sent/signed are permanent records)
 - `GET /api/documents/:id/audit` — timestamped event trail
+- `GET /api/documents/export.csv` — whole ledger as CSV (signature image data never included)
 
 ## Notes
 

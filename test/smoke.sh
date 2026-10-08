@@ -89,5 +89,45 @@ echo "$P2" | grep -q 'invalid transition' && ok "signed doc is terminal" || bad 
 curl -s "$BASE/" | grep -q 'vendor/pdf-lib.min.js' && ok "index references vendored pdf-lib" || bad "pdf-lib ref missing"
 curl -s -o /dev/null -w "%{http_code}" "$BASE/vendor/pdf-lib.min.js" | grep -q '200' && ok "pdf-lib.min.js serves (200)" || bad "pdf-lib 404"
 
+# 16. CSV export downloads the ledger without signature blobs
+curl -s -D /tmp/sp-hdrs.txt "$BASE/api/documents/export.csv" -o /tmp/sp-export.csv
+grep -qi 'text/csv' /tmp/sp-hdrs.txt && ok "CSV export content-type is text/csv" || bad "CSV content-type: $(head -1 /tmp/sp-hdrs.txt)"
+head -1 /tmp/sp-export.csv | grep -q 'number.*title.*status' && ok "CSV has header row" || bad "CSV header: $(head -1 /tmp/sp-export.csv)"
+grep -q "$NUM" /tmp/sp-export.csv && ok "CSV includes created document $NUM" || bad "CSV missing doc $NUM"
+grep -q 'data:image' /tmp/sp-export.csv && bad "CSV leaks signature blobs" || ok "CSV omits signature image blobs"
+
+# 17. duplicate creates a fresh draft copy
+DUP=$(curl -s -X POST "$BASE/api/documents/$ID/duplicate" -H 'Content-Type: application/json')
+DID=$(echo "$DUP" | python3 -c "import json,sys; print(json.load(sys.stdin)['document']['id'])" 2>/dev/null)
+DNUM=$(echo "$DUP" | python3 -c "import json,sys; print(json.load(sys.stdin)['document']['number'])" 2>/dev/null)
+[ -n "$DID" ] && [ "$DID" != "$ID" ] && ok "duplicate returns new id" || bad "duplicate failed: ${DUP:0:200}"
+echo "$DUP" | grep -q '"status":"draft"' && ok "duplicate starts as draft" || bad "duplicate status: ${DUP:0:200}"
+echo "$DUP" | grep -q '(copy)' && ok "duplicate title marked (copy)" || bad "dup title: ${DUP:0:120}"
+[ "$DNUM" != "$NUM" ] && ok "duplicate gets new number ($DNUM)" || bad "dup number unchanged"
+
+# 18. delete draft succeeds; deleting sent/signed docs is rejected
+curl -s -X PATCH "$BASE/api/documents/$DID" -H 'Content-Type: application/json' -d '{"status":"sent"}' >/dev/null
+DN=$(curl -s -X POST "$BASE/api/documents" -H 'Content-Type: application/json' \
+  -d '{"template":"completion","fields":{"clientName":"Temp T","projectRef":"Q-9","workSummary":"wip"}}')
+NDID=$(echo "$DN" | python3 -c "import json,sys; print(json.load(sys.stdin)['document']['id'])" 2>/dev/null)
+DEL_OK=$(curl -s -X DELETE "$BASE/api/documents/$NDID")
+echo "$DEL_OK" | grep -q '"ok":true' && ok "delete of draft doc succeeds" || bad "draft delete failed: ${DEL_OK:0:200}"
+DEL1=$(curl -s -X DELETE "$BASE/api/documents/$DID")
+echo "$DEL1" | grep -q 'only draft documents' && ok "delete of sent doc rejected" || bad "sent doc deleted: ${DEL1:0:200}"
+DEL2=$(curl -s -X DELETE "$BASE/api/documents/$ID")
+echo "$DEL2" | grep -q 'only draft documents' && ok "delete of signed doc rejected" || bad "signed doc deleted: ${DEL2:0:200}"
+
+# 19. list includes fields (client name search + quote expiry need it)
+curl -s "$BASE/api/documents" | grep -q '"fields"' && ok "list includes document fields" || bad "list missing fields"
+
+# 20. quote expiry helpers (node)
+node -e "
+var T=require('$DIR/public/templates.js');
+var e=T.expiryInfo('quote-approval', new Date().toISOString(), {validDays:'30'});
+if(!e||e.daysLeft!==30) throw new Error('expiry '+JSON.stringify(e));
+if(T.expiryInfo('completion', new Date().toISOString(), {})!==null) throw new Error('non-quote should be null');
+if(T.quoteExpiryDate(new Date().toISOString(), {})===null) throw new Error('default validDays broken');
+" && ok "quote expiry helpers work (30d default, non-quote null)" || bad "expiry helpers broken"
+
 echo "RESULT: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
