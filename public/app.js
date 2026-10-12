@@ -66,6 +66,23 @@
     return {
       clear: function () { ctx.clearRect(0, 0, canvas.width, canvas.height); drawn = false; },
       isEmpty: function () { return !drawn; },
+      /* Render a typed name onto the pad in a script style, for signers
+       * who can't draw (trackpads, accessibility). Counts as a signature. */
+      stamp: function (text) {
+        /* ctx is already scaled for devicePixelRatio by setup(): draw in
+         * 600x200 CSS-pixel space like the pointer handlers do. */
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#111827";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        var size = 64;
+        ctx.font = "italic " + size + "px 'Segoe Script','Brush Script MT','Apple Chancery',cursive";
+        while (ctx.measureText(text).width > 560 && size > 28) {
+          size -= 4;
+          ctx.font = "italic " + size + "px 'Segoe Script','Brush Script MT','Apple Chancery',cursive";
+        }
+        ctx.fillText(text, 300, 105);
+        drawn = true;
+      },
       toDataURL: function () {
         var c = document.createElement("canvas");
         c.width = 600; c.height = 200;
@@ -91,11 +108,20 @@
     return '<span class="exp ' + cls + '">' + esc(txt) + "</span>";
   }
 
+  /* Days a sent document has been waiting for signatures. */
+  function waitingBadge(d) {
+    if (d.status !== "sent" || !d.sentAt) return "";
+    var days = Math.max(0, Math.floor((Date.now() - new Date(d.sentAt).getTime()) / 86400000));
+    var txt = days === 0 ? "sent today" : "waiting " + days + "d";
+    var cls = days >= 7 ? "wait-late" : "wait";
+    return '<span class="exp ' + cls + '">' + esc(txt) + "</span>";
+  }
+
   function cardHtml(d) {
     return '<div class="card status-' + d.status + '"><h3><a href="#/doc/' + d.id + '">' + esc(d.title) + "</a></h3>" +
       '<div class="docnum">' + esc(d.number) + " · " + esc(d.template) + "</div>" +
       '<div class="card-foot"><span class="pill ' + d.status + '">' + d.status + '</span>' +
-      expiryBadge(d) +
+      expiryBadge(d) + waitingBadge(d) +
       '<span class="when">created ' + esc((d.createdAt || "").slice(0, 10)) + "</span></div></div>";
   }
 
@@ -187,6 +213,7 @@
     return '<div class="sig-block"><span class="sealed-mark">SEALED</span><strong>' + label + ":</strong>" +
       '<div class="sig-name">' + esc(s.name) + "</div>" +
       '<div class="muted">signed ' + esc(s.signedAt.slice(0, 16).replace("T", " ")) + "</div>" +
+      (s.hash ? '<div class="muted seal-hash" title="Tamper-evident seal: SHA-256 over the document snapshot and signature bytes. Any change to the document or signature invalidates it.">seal ' + esc(s.hash.slice(0, 16)) + "…</div>" : "") +
       '<img src="' + s.signature + '" alt="signature"></div>';
   }
 
@@ -245,6 +272,11 @@
       }
       if (d.status === "sent") {
         btn("Open signing view", "primary", function () { location.hash = "#/sign/" + id; });
+        btn("Record reminder sent", "ghost", function () {
+          api("/api/documents/" + id + "/nudge", { method: "POST", body: { via: "contractor note" } })
+            .then(function () { renderDoc(id); })
+            .catch(function (e) { alert("Error: " + e.message); });
+        });
         btn("Recall to draft", "ghost", function () {
           api("/api/documents/" + id, { method: "PATCH", body: { status: "draft" } })
             .then(function () { renderDoc(id); });
@@ -327,6 +359,16 @@
   }
 
   document.getElementById("btn-clear-sig").addEventListener("click", function () { pad.clear(); });
+  document.getElementById("btn-stamp-sig").addEventListener("click", function () {
+    var t = document.getElementById("sign-typed").value.trim() ||
+      document.getElementById("sign-name").value.trim();
+    if (!t) {
+      document.getElementById("sign-msg").textContent = "Type your name above first.";
+      return;
+    }
+    pad.stamp(t);
+    document.getElementById("sign-msg").textContent = "Typed signature applied — you can still draw over it.";
+  });
 
   /* ---------- signed PDF export (pdf-lib, MIT, vendored locally) ---------- */
   function wrapText(text, font, size, maxWidth) {
@@ -381,6 +423,7 @@
           need(150);
           para((s.role === "client" ? "Client" : "Contractor") + ": " + s.name +
             " — signed " + s.signedAt.slice(0, 16).replace("T", " "), { bold: true });
+          if (s.hash) para("Seal: " + s.hash, { size: 8 });
           try {
             var b64 = s.signature.replace(/^data:image\/png;base64,/, "");
             var img = await pdf.embedPng(b64);

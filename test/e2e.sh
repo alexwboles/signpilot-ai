@@ -122,5 +122,41 @@ echo "$CSV" | grep -q 'data:image' && bad "flow9: CSV leaks signature blobs" || 
 ROWS=$(echo "$CSV" | grep -c '^"SP-')
 [ "$ROWS" -ge 2 ] && ok "flow9: CSV has $ROWS document rows" || bad "flow9: row count $ROWS"
 
+# ---- Flow 10: tamper-evident signature seal ----
+C10=$(curl -s -X POST "$BASE/api/documents" -H 'Content-Type: application/json' \
+  -d '{"template":"completion","title":"Seal test","fields":{"clientName":"Seal Guy","projectRef":"Q-9","workSummary":"x"}}')
+ID10=$(echo "$C10" | py "d['document']['id']")
+curl -s -X PATCH "$BASE/api/documents/$ID10" -H 'Content-Type: application/json' -d '{"status":"sent"}' >/dev/null
+SIG2="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhgGAdGkH8AAAAABJRU5ErkJggg=="
+H10=$(curl -s -X POST "$BASE/api/documents/$ID10/sign" -H 'Content-Type: application/json' \
+  -d "{\"role\":\"contractor\",\"name\":\"Alex Contractor\",\"signature\":\"$SIG\"}")
+HASH=$(echo "$H10" | py "d['document']['signatures'][0]['hash']")
+echo "$HASH" | grep -qE '^[0-9a-f]{64}$' && ok "flow10: seal is a 64-hex SHA-256" || bad "flow10: bad seal: ${HASH:0:40}"
+SIGBLOB=$(echo "$H10" | py "d['document']['signatures'][0]['signature']")
+echo "$SIGBLOB" | grep -q '^data:image' && ok "flow10: signature blob retained server-side" || bad "flow10: blob missing"
+# seal must change when the signature image changes
+H10B=$(curl -s -X POST "$BASE/api/documents/$ID10/sign" -H 'Content-Type: application/json' \
+  -d "{\"role\":\"contractor\",\"name\":\"Alex Contractor\",\"signature\":\"$SIG2\"}")
+HASHB=$(echo "$H10B" | py "d['document']['signatures'][0]['hash']")
+[ "$HASH" != "$HASHB" ] && [ -n "$HASHB" ] && ok "flow10: seal changes when signature bytes change" || bad "flow10: seal static"
+# list endpoint omits blobs but carries the seal
+L10=$(curl -s "$BASE/api/documents")
+echo "$L10" | grep -q '"hash"' && ok "flow10: list exposes seal hashes" || bad "flow10: list missing hash"
+echo "$L10" | grep -q 'data:image' && bad "flow10: list leaks blobs" || ok "flow10: list still omits blobs"
+
+# ---- Flow 11: nudge / reminder bookkeeping on sent docs ----
+C11=$(curl -s -X POST "$BASE/api/documents" -H 'Content-Type: application/json' \
+  -d '{"template":"completion","title":"Nudge test","fields":{"clientName":"Nudge Guy","projectRef":"Q-1","workSummary":"x"}}')
+ID11=$(echo "$C11" | py "d['document']['id']")
+N11A=$(curl -s -X POST "$BASE/api/documents/$ID11/nudge" -H 'Content-Type: application/json' -d '{"via":"text"}')
+echo "$N11A" | grep -q 'only sent documents can be nudged' && ok "flow11: nudge on draft rejected" || bad "flow11: draft nudge: ${N11A:0:150}"
+curl -s -X PATCH "$BASE/api/documents/$ID11" -H 'Content-Type: application/json' -d '{"status":"sent"}' >/dev/null
+N11B=$(curl -s -X POST "$BASE/api/documents/$ID11/nudge" -H 'Content-Type: application/json' -d '{"via":"text"}')
+echo "$N11B" | grep -q '"ok":true' && ok "flow11: nudge accepted on sent doc" || bad "flow11: nudge failed: ${N11B:0:150}"
+A11=$(curl -s "$BASE/api/documents/$ID11/audit")
+echo "$A11" | grep -q '"event":"nudge"' && ok "flow11: nudge written to audit trail" || bad "flow11: no audit event"
+G11=$(curl -s "$BASE/api/documents/$ID11" | py "d['document']['sentAt']")
+echo "$G11" | grep -q 'T' && ok "flow11: sentAt stamped on send" || bad "flow11: sentAt missing"
+
 echo "RESULT: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

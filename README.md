@@ -17,6 +17,9 @@ Built as a free alternative to paid e-signature tools (and to AGPL-licensed opti
 - **CSV export** — download the whole document ledger (`GET /api/documents/export.csv`) for bookkeeping; signature blobs never included
 - **Delete drafts** — remove unneeded drafts (sent/signed documents are permanent records)
 - **Shareable signing link** — open `#/sign/<id>` on the client's device on the same network, or hand them your device
+- **Tamper-evident seal** — every signature gets a SHA-256 hash over a canonical snapshot of the document + signature bytes, stored on the server and shown in the doc view and the signed PDF export; any change to the document or signature invalidates the seal
+- **Typed signatures** — signers can type their name instead of drawing; it renders in a script style on the pad (helps trackpads and accessibility)
+- **Awaiting-signature tracking** — sent documents show a "waiting N days" badge in the list, and the contractor can record reminders ("Record reminder sent") — each nudge is written to the audit trail
 - **Printable** — print CSS for paper copies
 
 ## Run it

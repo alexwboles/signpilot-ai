@@ -12,6 +12,7 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const Templates = require("./public/templates.js");
 
@@ -71,6 +72,32 @@ function nowISO() {
 
 function audit(doc, event, detail) {
   doc.audit.push({ ts: nowISO(), event, detail: detail || "" });
+}
+
+/* Tamper-evident seal: SHA-256 over a canonical snapshot of the document
+ * plus the signature bytes. Any change to the document text, the signer
+ * name, the timestamp, or the signature image changes the hash. */
+function sortObj(o) {
+  if (Array.isArray(o)) return o.map(sortObj);
+  if (o && typeof o === "object") {
+    const out = {};
+    Object.keys(o).sort().forEach((k) => { out[k] = sortObj(o[k]); });
+    return out;
+  }
+  return o;
+}
+
+function signatureHash(doc, entry) {
+  const canon = [
+    doc.number,
+    doc.title,
+    JSON.stringify(sortObj(doc.fields || {})),
+    entry.role,
+    entry.name,
+    entry.signedAt,
+    entry.signature
+  ].join("|");
+  return crypto.createHash("sha256").update(canon, "utf8").digest("hex");
 }
 
 function newId() {
@@ -172,7 +199,7 @@ async function handle(req, res) {
         id: d.id, number: d.number, template: d.template, title: d.title,
         status: d.status, createdAt: d.createdAt, sentAt: d.sentAt,
         signedAt: d.signedAt, fields: d.fields || {},
-        signatures: d.signatures.map((s) => ({ role: s.role, name: s.name, signedAt: s.signedAt }))
+        signatures: d.signatures.map((s) => ({ role: s.role, name: s.name, signedAt: s.signedAt, hash: s.hash }))
       }));
       return sendJSON(res, 200, { documents: docs });
     }
@@ -202,7 +229,7 @@ async function handle(req, res) {
   }
 
   // single document / sub-resources
-  const dm = /^\/api\/documents\/([^/]+)(\/(sign|audit|duplicate))?$/.exec(p);
+  const dm = /^\/api\/documents\/([^/]+)(\/(sign|audit|duplicate|nudge))?$/.exec(p);
   if (dm) {
     const id = dm[1];
     const sub = dm[3] || null;
@@ -295,15 +322,30 @@ async function handle(req, res) {
         signedAt: ts,
         note: "Signature captured in this browser (SignPilot AI, local)."
       };
+      entry.hash = signatureHash(doc, entry);
       if (existing) Object.assign(existing, entry);
       else doc.signatures.push(entry);
-      audit(doc, "signed", role + " signature captured for " + name + ".");
+      audit(doc, "signed", role + " signature captured for " + name + " (seal " + entry.hash.slice(0, 12) + "…).");
       const roles = doc.signatures.map((s) => s.role);
       if (roles.includes("client") && roles.includes("contractor") && doc.status !== "signed") {
         doc.status = "signed";
         doc.signedAt = ts;
         audit(doc, "completed", "Both parties signed — document is fully executed.");
       }
+      writeDocs(docs);
+      return sendJSON(res, 200, { ok: true, document: doc });
+    }
+    // Record a signer reminder ("nudge") on a sent document. This is a
+    // bookkeeping action: it writes an audit event so the contractor can
+    // see how many reminders have gone out while a document waits.
+    if (m === "POST" && sub === "nudge") {
+      const body = await readBody(req);
+      if (doc.status !== "sent") {
+        return sendJSON(res, 400, { ok: false, error: "only sent documents can be nudged" });
+      }
+      const via = String((body && body.via) || "note").trim().slice(0, 40) || "note";
+      const nudges = doc.audit.filter((e) => e.event === "nudge").length + 1;
+      audit(doc, "nudge", "Reminder #" + nudges + " recorded (" + via + ") — document awaiting signatures.");
       writeDocs(docs);
       return sendJSON(res, 200, { ok: true, document: doc });
     }

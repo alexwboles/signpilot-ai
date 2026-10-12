@@ -257,6 +257,9 @@ footer.muted { text-align: center; padding: 26px 16px 34px; font-size: 13px; }
 .exp-ok { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
 .exp-soon { background: #fffbeb; color: #92400e; border: 1px solid #fcd34d; }
 .exp-over { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+.wait { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+.wait-late { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+.seal-hash { font-family: ui-monospace, monospace; font-size: 11px; }
 .btn.danger { border-color: #b91c1c; color: #991b1b; }
 .btn.danger:hover { background: #fef2f2; border-color: #991b1b; }
 

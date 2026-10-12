@@ -129,5 +129,13 @@ if(T.expiryInfo('completion', new Date().toISOString(), {})!==null) throw new Er
 if(T.quoteExpiryDate(new Date().toISOString(), {})===null) throw new Error('default validDays broken');
 " && ok "quote expiry helpers work (30d default, non-quote null)" || bad "expiry helpers broken"
 
+# 21. new UI: waiting badge, typed signature, seal display, nudge button wired
+grep -q 'waitingBadge' "$DIR/public/app.js" && ok "app.js uses waitingBadge" || bad "app.js missing waitingBadge"
+grep -q 'pad.stamp' "$DIR/public/app.js" && ok "app.js uses pad.stamp (typed signature)" || bad "app.js missing pad.stamp"
+grep -q 'btn-stamp-sig' "$DIR/public/index.html" && ok "index.html has typed-signature button" || bad "index.html missing typed-signature button"
+grep -q 'seal' "$DIR/public/app.js" && ok "app.js shows signature seal" || bad "app.js missing seal display"
+grep -q 'nudge' "$DIR/public/app.js" && ok "app.js wires nudge action" || bad "app.js missing nudge"
+grep -q 'nudge' "$DIR/server.js" && ok "server.js has nudge endpoint" || bad "server.js missing nudge"
+
 echo "RESULT: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
