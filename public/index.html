@@ -12,7 +12,7 @@
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <div class="brand"><svg class="logo" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> <strong>SignPilot <span style="color:#e8b25e">AI</span></strong> <span class="tag">100% local</span></div>
+    <a class="brand" href="#/"><svg class="logo" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> <strong>SignPilot <span style="color:#e8b25e">AI</span></strong> <span class="tag">100% local</span></a>
     <nav>
       <a href="#/" id="nav-list">Documents</a>
       <a href="#/new" id="nav-new" class="btn">+ New document</a>
@@ -25,43 +25,33 @@
   <section id="view-list" class="view">
     <h1>Documents</h1>
     <p class="lede">Create an approval, send it to the client, capture signatures — all in this browser. No accounts, no per-envelope fees.</p>
+    <div class="seg" role="tablist" aria-label="Filter by status">
+      <button class="seg-btn" data-f="attention">Needs attention <b id="cnt-attention">0</b></button>
+      <button class="seg-btn active" data-f="">All <b id="cnt-all">0</b></button>
+      <button class="seg-btn" data-f="draft">Drafts <b id="cnt-draft">0</b></button>
+      <button class="seg-btn" data-f="sent">Sent <b id="cnt-sent">0</b></button>
+      <button class="seg-btn" data-f="signed">Signed <b id="cnt-signed">0</b></button>
+    </div>
     <div class="toolbar">
       <input id="doc-search" type="search" placeholder="Search by title, client, or number…" aria-label="Search documents">
-      <select id="doc-status-filter" aria-label="Filter by status">
-        <option value="">All statuses</option>
-        <option value="draft">Draft</option>
-        <option value="sent">Sent</option>
-        <option value="signed">Signed</option>
-      </select>
       <a class="btn ghost" href="/api/documents/export.csv" download>Export CSV</a>
     </div>
-    <div class="pipe-rail" aria-label="Document lifecycle">
-      <div class="pipe-step" data-s="draft">
-        <div class="pipe-num" id="pipe-draft">0</div>
-        <div><div class="pipe-label">Draft</div><div class="muted" style="font-size:12.5px">being prepared</div></div>
+    <div class="env-table" aria-label="Documents">
+      <div class="env-head">
+        <span>Document</span><span>Signatures</span><span>Status</span><span>Created</span><span></span>
       </div>
-      <div class="pipe-step" data-s="sent">
-        <div class="pipe-num" id="pipe-sent">0</div>
-        <div><div class="pipe-label">Sent</div><div class="muted" style="font-size:12.5px">awaiting signatures</div></div>
-      </div>
-      <div class="pipe-step" data-s="signed">
-        <div class="pipe-num" id="pipe-signed">0</div>
-        <div><div class="pipe-label">Signed</div><div class="muted" style="font-size:12.5px">sealed &amp; complete</div></div>
-      </div>
+      <div id="doc-list"></div>
     </div>
-    <div id="doc-list" class="cards"></div>
   </section>
 
   <!-- editor view -->
   <section id="view-edit" class="view hidden">
     <h1>New document</h1>
     <p class="lede">Pick a template, fill in the fields, save a draft.</p>
+    <div class="tpl-gallery" id="tpl-gallery" role="radiogroup" aria-label="Choose a template"></div>
     <div class="sheet">
-      <label>Template
-        <select id="f-template"></select>
-      </label>
-      <p class="template-blurb" id="template-blurb"></p>
       <label>Document title <input id="f-title" type="text" placeholder="e.g. Smith kitchen remodel — quote approval"></label>
+      <p class="template-blurb" id="template-blurb"></p>
       <div id="template-fields"></div>
       <div class="row">
         <button id="btn-save-doc" class="btn primary">Save draft</button>
@@ -73,37 +63,64 @@
 
   <!-- detail view -->
   <section id="view-doc" class="view hidden">
-    <div class="row between">
-      <h1 id="doc-title"></h1>
-      <span id="doc-status" class="pill"></span>
-    </div>
-    <div id="doc-body" class="paper"></div>
-    <div id="send-box" class="panel hidden">
-      <h3>Send to client</h3>
-      <p class="muted">Open this link on the client's device (same network) or hand them this device:</p>
-      <div class="row">
-        <input id="sign-link" readonly aria-label="Signing link">
-        <button id="btn-copy-link" class="btn">Copy</button>
+    <div class="doclayout">
+      <div class="docmain">
+        <div class="paperhead">
+          <div>
+            <h1 id="doc-title"></h1>
+            <span id="doc-status" class="pill"></span>
+          </div>
+        </div>
+        <div id="doc-body" class="paper"></div>
       </div>
-    </div>
-    <div class="row" id="doc-actions"></div>
-    <div id="verify-box" class="verify-box hidden"></div>
-    <h3 class="doc-audit-head">Audit trail</h3>
-    <ul id="doc-audit" class="audit"></ul>
-    <div id="pdf-box" class="panel hidden">
-      <h3>Signed PDF</h3>
-      <button id="btn-pdf" class="btn primary">Download signed PDF</button>
-      <p class="muted">Generated locally in your browser with pdf-lib (MIT). Includes signatures + audit trail.</p>
+      <aside class="docrail">
+        <div class="railcard">
+          <h3>Signing progress</h3>
+          <div id="sign-progress"></div>
+        </div>
+        <div class="railcard hidden" id="send-box">
+          <h3>Signing link</h3>
+          <p class="muted">Open this link on the client's device (same network) or hand them this device:</p>
+          <div class="row">
+            <input id="sign-link" readonly aria-label="Signing link">
+            <button id="btn-copy-link" class="btn">Copy</button>
+          </div>
+        </div>
+        <div class="railcard">
+          <h3>Actions</h3>
+          <div class="row" id="doc-actions"></div>
+        </div>
+        <div class="railcard" id="seal-card">
+          <h3>Tamper-evident seals</h3>
+          <p class="muted">Each signature carries a SHA-256 seal over the document snapshot and signature bytes.</p>
+          <button id="btn-verify" class="btn ghost">Verify seals</button>
+          <div id="verify-box" class="verify-box hidden"></div>
+        </div>
+        <div class="railcard hidden" id="pdf-box">
+          <h3>Signed PDF</h3>
+          <button id="btn-pdf" class="btn primary">Download signed PDF</button>
+          <p class="muted">Generated locally in your browser with pdf-lib (MIT). Includes signatures + audit trail.</p>
+        </div>
+        <div class="railcard">
+          <h3>Audit trail</h3>
+          <ul id="doc-audit" class="audit"></ul>
+        </div>
+      </aside>
     </div>
   </section>
 
   <!-- signing view -->
   <section id="view-sign" class="view hidden">
-    <h1 id="sign-title"></h1>
+    <div class="steps" aria-label="Signing progress">
+      <div class="step done"><span class="stepnum">1</span> Review</div>
+      <div class="step current"><span class="stepnum">2</span> Sign</div>
+      <div class="step"><span class="stepnum">3</span> Done</div>
+    </div>
+    <h1 id="sign-title" class="signtitle"></h1>
     <div id="sign-body" class="paper"></div>
-    <div class="panel sign-desk">
+    <div class="sign-desk">
       <h3>Sign here</h3>
-      <p class="muted">Draw your signature on the line below. It is captured on this device only.</p>
+      <p class="muted">Draw your signature on the pad below. It is captured on this device only.</p>
       <div class="row">
         <label>Signing as
           <select id="sign-role">

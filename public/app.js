@@ -118,27 +118,71 @@
   }
 
   function cardHtml(d) {
-    return '<div class="card status-' + d.status + '"><h3><a href="#/doc/' + d.id + '">' + esc(d.title) + "</a></h3>" +
-      '<div class="docnum">' + esc(d.number) + " · " + esc(d.template) + "</div>" +
-      '<div class="card-foot"><span class="pill ' + d.status + '">' + d.status + '</span>' +
-      expiryBadge(d) + waitingBadge(d) +
-      '<span class="when">created ' + esc((d.createdAt || "").slice(0, 10)) + "</span></div></div>";
+    var sigs = d.signatures || [];
+    function dot(role, label) {
+      var s = sigs.find(function (x) { return x.role === role; });
+      var init = s ? esc(s.name.trim().charAt(0).toUpperCase() || "?") : "";
+      return '<span class="sigdot' + (s ? " done" : "") + '" title="' + label + ": " +
+        (s ? esc(s.name) : "awaiting") + '">' + (s ? init : label.charAt(0)) + "</span>";
+    }
+    return '<a class="env-row status-' + d.status + '" href="#/doc/' + d.id + '">' +
+      '<span class="env-title">' + esc(d.title) +
+        '<span class="docnum">' + esc(d.number) + " · " + esc(tplName(d.template)) + "</span></span>" +
+      '<span class="sigprog">' + dot("contractor", "Contractor") + dot("client", "Client") +
+        '<span class="role">' + sigs.length + "/2 signed</span></span>" +
+      '<span class="env-meta"><span class="pill ' + d.status + '">' + d.status + "</span>" +
+        expiryBadge(d) + waitingBadge(d) + "</span>" +
+      '<span class="env-when">' + esc((d.createdAt || "").slice(0, 10)) + "</span>" +
+      '<span class="chev" aria-hidden="true">›</span></a>';
   }
+
+  function tplName(tid) {
+    var t = T.TEMPLATES[tid];
+    return t ? t.name : tid;
+  }
+
+  function needsAttention(d) {
+    if (d.status === "declined") return true;
+    if (d.status === "sent" && d.sentAt) {
+      var days = Math.floor((Date.now() - new Date(d.sentAt).getTime()) / 86400000);
+      if (days >= 7) return true;
+    }
+    return false;
+  }
+
+  var tabFilter = "";
+  document.querySelectorAll(".seg-btn").forEach(function (b) {
+    b.addEventListener("click", function () {
+      document.querySelectorAll(".seg-btn").forEach(function (x) { x.classList.remove("active"); });
+      b.classList.add("active");
+      tabFilter = b.getAttribute("data-f");
+      applyListFilter();
+    });
+  });
 
   function applyListFilter() {
     var q = document.getElementById("doc-search").value.trim().toLowerCase();
-    var st = document.getElementById("doc-status-filter").value;
+    var counts = { all: allDocs.length, attention: 0, draft: 0, sent: 0, signed: 0 };
+    allDocs.forEach(function (d) {
+      if (needsAttention(d)) counts.attention++;
+      if (counts[d.status] != null) counts[d.status]++;
+    });
+    ["all", "attention", "draft", "sent", "signed"].forEach(function (k) {
+      var e = document.getElementById("cnt-" + k);
+      if (e) e.textContent = counts[k];
+    });
     var list = allDocs.filter(function (d) {
-      if (st && d.status !== st) return false;
+      if (tabFilter === "attention" && !needsAttention(d)) return false;
+      if (tabFilter && tabFilter !== "attention" && d.status !== tabFilter) return false;
       if (!q) return true;
       var hay = (d.title + " " + d.number + " " + ((d.fields || {}).clientName || "") + " " + d.template).toLowerCase();
       return hay.indexOf(q) !== -1;
     });
     var el = document.getElementById("doc-list");
     if (!allDocs.length) {
-      el.innerHTML = '<p class="muted">No documents yet. <a href="#/new">Create your first approval</a>.</p>';
+      el.innerHTML = '<p class="empty-note">No documents yet. <a href="#/new">Create your first approval</a>.</p>';
     } else if (!list.length) {
-      el.innerHTML = '<p class="muted">No documents match your search.</p>';
+      el.innerHTML = '<p class="empty-note">No documents match this view.</p>';
     } else {
       el.innerHTML = list.map(cardHtml).join("");
     }
@@ -148,19 +192,13 @@
     show("view-list");
     api("/api/documents").then(function (j) {
       allDocs = j.documents;
-      var counts = { draft: 0, sent: 0, signed: 0 };
-      j.documents.forEach(function (d) { if (counts[d.status] != null) counts[d.status]++; });
-      document.getElementById("pipe-draft").textContent = counts.draft;
-      document.getElementById("pipe-sent").textContent = counts.sent;
-      document.getElementById("pipe-signed").textContent = counts.signed;
       applyListFilter();
     }).catch(function (e) {
-      document.getElementById("doc-list").innerHTML = '<p class="muted">Error: ' + esc(e.message) + "</p>";
+      document.getElementById("doc-list").innerHTML = '<p class="empty-note">Error: ' + esc(e.message) + "</p>";
     });
   }
 
   document.getElementById("doc-search").addEventListener("input", applyListFilter);
-  document.getElementById("doc-status-filter").addEventListener("change", applyListFilter);
 
   /* ---------- editor ---------- */
   function fieldInput(fd) {
@@ -176,24 +214,38 @@
     return '<label>' + esc(fd.label) + '<input type="' + fd.type + '" data-key="' + fd.key + '"' + val + ph + req + "></label>";
   }
 
+  var selectedTemplate = "quote-approval";
+
   function renderEdit() {
     show("view-edit");
-    var sel = document.getElementById("f-template");
-    sel.innerHTML = Object.values(T.TEMPLATES).map(function (t) {
-      return '<option value="' + t.id + '">' + esc(t.name) + "</option>";
+    var gal = document.getElementById("tpl-gallery");
+    gal.innerHTML = Object.values(T.TEMPLATES).map(function (t) {
+      return '<button type="button" role="radio" aria-checked="' + (t.id === selectedTemplate) +
+        '" class="tpl-card' + (t.id === selectedTemplate ? " selected" : "") + '" data-t="' + t.id + '">' +
+        "<h3>" + esc(t.name) + "</h3><p>" + esc(t.blurb) + "</p></button>";
     }).join("");
     function drawFields() {
-      var t = T.TEMPLATES[sel.value];
+      var t = T.TEMPLATES[selectedTemplate];
       document.getElementById("template-blurb").textContent = t.blurb;
       document.getElementById("template-fields").innerHTML = t.fields.map(fieldInput).join("");
+      gal.querySelectorAll(".tpl-card").forEach(function (c) {
+        var on = c.getAttribute("data-t") === selectedTemplate;
+        c.classList.toggle("selected", on);
+        c.setAttribute("aria-checked", on);
+      });
     }
-    sel.onchange = drawFields;
+    gal.querySelectorAll(".tpl-card").forEach(function (c) {
+      c.addEventListener("click", function () {
+        selectedTemplate = c.getAttribute("data-t");
+        drawFields();
+      });
+    });
     drawFields();
     document.getElementById("edit-msg").textContent = "";
   }
 
   document.getElementById("btn-save-doc").addEventListener("click", function () {
-    var tid = document.getElementById("f-template").value;
+    var tid = selectedTemplate;
     var fields = {};
     document.querySelectorAll("#template-fields [data-key]").forEach(function (el) {
       fields[el.getAttribute("data-key")] = el.value;
@@ -217,6 +269,23 @@
       '<img src="' + s.signature + '" alt="signature"></div>';
   }
 
+  function renderSignProgress(d) {
+    var sigs = d.signatures || [];
+    var rows = ["contractor", "client"].map(function (role) {
+      var s = sigs.find(function (x) { return x.role === role; });
+      var label = role === "contractor" ? "Contractor" : "Client";
+      var init = s ? esc(s.name.trim().charAt(0).toUpperCase() || "?") : label.charAt(0);
+      return '<div class="prog-row"><span class="avatar' + (s ? "" : " pending") + '">' + init + "</span>" +
+        '<span><span class="prog-who">' + label + "</span>" +
+        '<span class="prog-sub">' + (s
+          ? esc(s.name) + "<br>signed " + esc(s.signedAt.slice(0, 16).replace("T", " ")) +
+            (s.hash ? "<br>seal " + esc(s.hash.slice(0, 12)) + "…" : "")
+          : "awaiting signature") + "</span></span>" +
+        (s ? '<span class="prog-check" aria-label="signed">✓</span>' : "") + "</div>";
+    }).join("");
+    document.getElementById("sign-progress").innerHTML = rows;
+  }
+
   function letterhead(d) {
     return '<div class="letterhead"><div class="lh-brand">SignPilot <span>AI</span> · Approval Document</div>' +
       '<div class="lh-num">' + esc(d.number) + "</div></div>";
@@ -230,6 +299,7 @@
       var pill = document.getElementById("doc-status");
       pill.className = "pill " + d.status;
       pill.textContent = d.status;
+      renderSignProgress(d);
       var paras = T.renderBody(d.template, d.fields);
       var expiryHtml = "";
       if (d.template === "quote-approval" && d.status !== "signed") {
@@ -294,22 +364,22 @@
           .then(function (r) { location.hash = "#/doc/" + r.document.id; })
           .catch(function (e) { alert("Error: " + e.message); });
       });
-      if (d.signatures && d.signatures.length) {
-        btn("Verify seals", "ghost", function () {
-          api("/api/documents/" + id + "/verify").then(function (v) {
-            var box = document.getElementById("verify-box");
-            var rows = v.seals.map(function (s) {
-              return '<li class="' + (s.valid ? "seal-ok" : "seal-bad") + '">' +
-                esc(s.role) + " — " + esc(s.name) + ": " +
-                (s.valid ? "seal intact" : "SEAL BROKEN — document or signature changed after signing") +
-                "</li>";
-            }).join("");
-            box.innerHTML = "<strong>" + (v.valid ? "All seals intact." : "TAMPER DETECTED.") + "</strong><ul>" + rows + "</ul>";
-            box.className = "verify-box " + (v.valid ? "ok" : "bad");
-            box.classList.remove("hidden");
-          }).catch(function (e) { alert("Error: " + e.message); });
-        });
-      }
+      document.getElementById("btn-verify").onclick = function () {
+        api("/api/documents/" + id + "/verify").then(function (v) {
+          var box = document.getElementById("verify-box");
+          var rows = v.seals.map(function (s) {
+            return '<li class="' + (s.valid ? "seal-ok" : "seal-bad") + '">' +
+              esc(s.role) + " — " + esc(s.name) + ": " +
+              (s.valid ? "seal intact" : "SEAL BROKEN — document or signature changed after signing") +
+              "</li>";
+          }).join("");
+          box.innerHTML = "<strong>" + (v.valid ? "All seals intact." : "TAMPER DETECTED.") + "</strong><ul>" + rows + "</ul>";
+          box.className = "verify-box " + (v.valid ? "ok" : "bad");
+          box.classList.remove("hidden");
+        }).catch(function (e) { alert("Error: " + e.message); });
+      };
+      document.getElementById("seal-card").style.display =
+        (d.signatures && d.signatures.length) ? "" : "none";
       var back = document.createElement("a");
       back.className = "btn ghost"; back.href = "#/"; back.textContent = "Back to documents";
       actions.appendChild(back);
