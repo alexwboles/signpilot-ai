@@ -243,13 +243,20 @@
           expiryHtml = '<p class="notice' + (info.daysLeft <= 7 ? " warn" : "") + '">' + esc(msg) + "</p>";
         }
       }
+      // declined banner
+      var declineNote = "";
+      if (d.status === "declined") {
+        declineNote = '<p class="notice warn"><strong>Declined' +
+          (d.declinedAt ? " " + esc(d.declinedAt.slice(0, 10)) : "") + ".</strong>" +
+          (d.declineReason ? " Reason: " + esc(d.declineReason) : " No reason given.") +
+          " This is a permanent record — duplicate it to start over.</p>";
+      }
       document.getElementById("doc-body").innerHTML =
-        letterhead(d) + expiryHtml +
+        letterhead(d) + expiryHtml + declineNote +
         '<p class="lead">' + esc(paras[0]) + "</p>" +
         paras.slice(1).map(function (p) { return "<p>" + esc(p) + "</p>"; }).join("") +
         '<p class="muted">Document ' + esc(d.number) + " · created " + esc(d.createdAt.slice(0, 10)) + "</p>" +
         sigBlock(d, "contractor", "Contractor") + sigBlock(d, "client", "Client");
-
       var actions = document.getElementById("doc-actions");
       actions.innerHTML = "";
       function btn(label, cls, fn) {
@@ -287,6 +294,22 @@
           .then(function (r) { location.hash = "#/doc/" + r.document.id; })
           .catch(function (e) { alert("Error: " + e.message); });
       });
+      if (d.signatures && d.signatures.length) {
+        btn("Verify seals", "ghost", function () {
+          api("/api/documents/" + id + "/verify").then(function (v) {
+            var box = document.getElementById("verify-box");
+            var rows = v.seals.map(function (s) {
+              return '<li class="' + (s.valid ? "seal-ok" : "seal-bad") + '">' +
+                esc(s.role) + " — " + esc(s.name) + ": " +
+                (s.valid ? "seal intact" : "SEAL BROKEN — document or signature changed after signing") +
+                "</li>";
+            }).join("");
+            box.innerHTML = "<strong>" + (v.valid ? "All seals intact." : "TAMPER DETECTED.") + "</strong><ul>" + rows + "</ul>";
+            box.className = "verify-box " + (v.valid ? "ok" : "bad");
+            box.classList.remove("hidden");
+          }).catch(function (e) { alert("Error: " + e.message); });
+        });
+      }
       var back = document.createElement("a");
       back.className = "btn ghost"; back.href = "#/"; back.textContent = "Back to documents";
       actions.appendChild(back);
@@ -331,6 +354,11 @@
       if (d.status !== "sent") {
         document.getElementById("sign-msg").textContent =
           "This document is '" + d.status + "' — it must be sent before signing.";
+        document.getElementById("btn-decline").style.display = "none";
+        document.getElementById("btn-sign").style.display = "none";
+      } else {
+        document.getElementById("btn-decline").style.display = "";
+        document.getElementById("btn-sign").style.display = "";
       }
       document.getElementById("sign-title").textContent = d.title;
       var paras = T.renderBody(d.template, d.fields);
@@ -338,6 +366,17 @@
         letterhead(d) +
         '<p class="lead">' + esc(paras[0]) + "</p>" +
         paras.slice(1).map(function (p) { return "<p>" + esc(p) + "</p>"; }).join("");
+      document.getElementById("btn-decline").onclick = function () {
+        var msg = document.getElementById("sign-msg");
+        if (!confirm("Decline to sign this document? This closes it as declined — the contractor will be notified in the audit trail.")) return;
+        var reason = prompt("Optional: why are you declining? (recorded in the audit trail)") || "";
+        api("/api/documents/" + id + "/decline", { method: "POST", body: { reason: reason } })
+          .then(function () {
+            msg.textContent = "Document declined. The contractor has a permanent record with your reason.";
+            setTimeout(function () { location.hash = "#/doc/" + id; }, 1200);
+          })
+          .catch(function (e) { msg.textContent = "Error: " + e.message; });
+      };
       document.getElementById("btn-sign").onclick = function () {
         var name = document.getElementById("sign-name").value.trim();
         var role = document.getElementById("sign-role").value;

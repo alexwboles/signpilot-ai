@@ -1,1 +1,186 @@
-[]
+[
+  {
+    "id": "mv6yyztxt3f2ja",
+    "number": "SP-2026-0001",
+    "template": "quote-approval",
+    "title": "Smith kitchen — approval",
+    "fields": {
+      "clientName": "Jane Smith",
+      "quoteNumber": "Q-2026-0007",
+      "workDescription": "Replace 10 cabinets and install quartz counters",
+      "total": 8500,
+      "validDays": 30
+    },
+    "status": "signed",
+    "createdAt": "2026-10-13T17:43:19.269Z",
+    "sentAt": "2026-10-13T17:43:19.403Z",
+    "signedAt": "2026-10-13T17:43:19.434Z",
+    "signatures": [
+      {
+        "role": "client",
+        "name": "Jane Smith",
+        "signature": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+        "signedAt": "2026-10-13T17:43:19.416Z",
+        "note": "Signature captured in this browser (SignPilot AI, local).",
+        "hash": "58e6a140c99af167a1a3d082ea82d6c94fa60922a3da60c0470e88d95b4cd6f8"
+      },
+      {
+        "role": "contractor",
+        "name": "Alex Contractor",
+        "signature": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+        "signedAt": "2026-10-13T17:43:19.434Z",
+        "note": "Signature captured in this browser (SignPilot AI, local).",
+        "hash": "ec32c77651d6cd9fbbc2ffb9f374d768d1018ed76845ee9093c55ebc8fa74fb8"
+      }
+    ],
+    "audit": [
+      {
+        "ts": "2026-10-13T17:43:19.269Z",
+        "event": "created",
+        "detail": "Document created as draft."
+      },
+      {
+        "ts": "2026-10-13T17:43:19.403Z",
+        "event": "sent",
+        "detail": "Document marked sent — ready for signatures."
+      },
+      {
+        "ts": "2026-10-13T17:43:19.416Z",
+        "event": "signed",
+        "detail": "client signature captured for Jane Smith (seal 58e6a140c99a…)."
+      },
+      {
+        "ts": "2026-10-13T17:43:19.434Z",
+        "event": "signed",
+        "detail": "contractor signature captured for Alex Contractor (seal ec32c77651d6…)."
+      },
+      {
+        "ts": "2026-10-13T17:43:19.434Z",
+        "event": "completed",
+        "detail": "Both parties signed — document is fully executed."
+      }
+    ]
+  },
+  {
+    "id": "mv6yz04mqc5ucf",
+    "number": "SP-2026-0002",
+    "template": "quote-approval",
+    "title": "Smith kitchen — approval (copy)",
+    "fields": {
+      "clientName": "Jane Smith",
+      "quoteNumber": "Q-2026-0007",
+      "workDescription": "Replace 10 cabinets and install quartz counters",
+      "total": 8500,
+      "validDays": 30
+    },
+    "status": "sent",
+    "createdAt": "2026-10-13T17:43:19.654Z",
+    "sentAt": "2026-10-13T17:43:19.786Z",
+    "signedAt": null,
+    "signatures": [],
+    "audit": [
+      {
+        "ts": "2026-10-13T17:43:19.654Z",
+        "event": "created",
+        "detail": "Draft duplicated from SP-2026-0001."
+      },
+      {
+        "ts": "2026-10-13T17:43:19.786Z",
+        "event": "sent",
+        "detail": "Document marked sent — ready for signatures."
+      }
+    ]
+  },
+  {
+    "id": "mv6yz6dgby6tsw",
+    "number": "SP-2026-0003",
+    "template": "quote-approval",
+    "title": "Smith kitchen — approval",
+    "fields": {
+      "clientName": "Jane Smith",
+      "quoteNumber": "Q-2026-0007",
+      "workDescription": "Replace 10 cabinets and install quartz counters",
+      "total": 8500,
+      "validDays": 30
+    },
+    "status": "signed",
+    "createdAt": "2026-10-13T17:43:27.749Z",
+    "sentAt": "2026-10-13T17:43:28.135Z",
+    "signedAt": "2026-10-13T17:43:28.297Z",
+    "signatures": [
+      {
+        "role": "client",
+        "name": "Jane Smith",
+        "signature": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+        "signedAt": "2026-10-13T17:43:28.196Z",
+        "note": "Signature captured in this browser (SignPilot AI, local).",
+        "hash": "ae6fca3b104ac82c0942c0a9c59bcb2abf7ba4009060dc69329f60a64506efec"
+      },
+      {
+        "role": "contractor",
+        "name": "Alex Contractor",
+        "signature": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+        "signedAt": "2026-10-13T17:43:28.297Z",
+        "note": "Signature captured in this browser (SignPilot AI, local).",
+        "hash": "afe116059a1cfa60868e471afd16546a6cea6739583dd1860b3df9ccbcc9b5c7"
+      }
+    ],
+    "audit": [
+      {
+        "ts": "2026-10-13T17:43:27.749Z",
+        "event": "created",
+        "detail": "Document created as draft."
+      },
+      {
+        "ts": "2026-10-13T17:43:28.135Z",
+        "event": "sent",
+        "detail": "Document marked sent — ready for signatures."
+      },
+      {
+        "ts": "2026-10-13T17:43:28.198Z",
+        "event": "signed",
+        "detail": "client signature captured for Jane Smith (seal ae6fca3b104a…)."
+      },
+      {
+        "ts": "2026-10-13T17:43:28.298Z",
+        "event": "signed",
+        "detail": "contractor signature captured for Alex Contractor (seal afe116059a1c…)."
+      },
+      {
+        "ts": "2026-10-13T17:43:28.298Z",
+        "event": "completed",
+        "detail": "Both parties signed — document is fully executed."
+      }
+    ]
+  },
+  {
+    "id": "mv6yz70wj4xydv",
+    "number": "SP-2026-0004",
+    "template": "quote-approval",
+    "title": "Smith kitchen — approval (copy)",
+    "fields": {
+      "clientName": "Jane Smith",
+      "quoteNumber": "Q-2026-0007",
+      "workDescription": "Replace 10 cabinets and install quartz counters",
+      "total": 8500,
+      "validDays": 30
+    },
+    "status": "sent",
+    "createdAt": "2026-10-13T17:43:28.592Z",
+    "sentAt": "2026-10-13T17:43:29.150Z",
+    "signedAt": null,
+    "signatures": [],
+    "audit": [
+      {
+        "ts": "2026-10-13T17:43:28.592Z",
+        "event": "created",
+        "detail": "Draft duplicated from SP-2026-0003."
+      },
+      {
+        "ts": "2026-10-13T17:43:29.150Z",
+        "event": "sent",
+        "detail": "Document marked sent — ready for signatures."
+      }
+    ]
+  }
+]

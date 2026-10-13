@@ -229,7 +229,7 @@ async function handle(req, res) {
   }
 
   // single document / sub-resources
-  const dm = /^\/api\/documents\/([^/]+)(\/(sign|audit|duplicate|nudge))?$/.exec(p);
+  const dm = /^\/api\/documents\/([^/]+)(\/(sign|audit|duplicate|nudge|decline|verify))?$/.exec(p);
   if (dm) {
     const id = dm[1];
     const sub = dm[3] || null;
@@ -334,6 +334,40 @@ async function handle(req, res) {
       }
       writeDocs(docs);
       return sendJSON(res, 200, { ok: true, document: doc });
+    }
+    // Decline to sign: a sent document can be declined (with an optional
+    // reason) by the client. "declined" is terminal like "signed" — a
+    // permanent record that can be duplicated into a fresh draft.
+    if (m === "POST" && sub === "decline") {
+      const body = await readBody(req);
+      if (doc.status !== "sent") {
+        return sendJSON(res, 400, { ok: false, error: "only sent documents can be declined" });
+      }
+      const reason = String((body && body.reason) || "").trim().slice(0, 500);
+      doc.status = "declined";
+      doc.declinedAt = nowISO();
+      doc.declineReason = reason;
+      audit(doc, "declined", reason ? "Client declined to sign: " + reason : "Client declined to sign.");
+      writeDocs(docs);
+      return sendJSON(res, 200, { ok: true, document: doc });
+    }
+    // Verify the tamper-evident seals: recompute every signature hash over
+    // the CURRENT document and report which seals still hold. A failed seal
+    // means the document text or a signature changed after signing.
+    if (m === "GET" && sub === "verify") {
+      const seals = (doc.signatures || []).map((entry) => {
+        const recomputed = signatureHash(doc, entry);
+        return {
+          role: entry.role,
+          name: entry.name,
+          signedAt: entry.signedAt,
+          stored: entry.hash || null,
+          recomputed: recomputed,
+          valid: !!entry.hash && entry.hash === recomputed
+        };
+      });
+      const valid = seals.length > 0 && seals.every((x) => x.valid);
+      return sendJSON(res, 200, { ok: true, id: doc.id, number: doc.number, valid: valid, seals: seals });
     }
     // Record a signer reminder ("nudge") on a sent document. This is a
     // bookkeeping action: it writes an audit event so the contractor can

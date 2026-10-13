@@ -137,5 +137,15 @@ grep -q 'seal' "$DIR/public/app.js" && ok "app.js shows signature seal" || bad "
 grep -q 'nudge' "$DIR/public/app.js" && ok "app.js wires nudge action" || bad "app.js missing nudge"
 grep -q 'nudge' "$DIR/server.js" && ok "server.js has nudge endpoint" || bad "server.js missing nudge"
 
+# 22. sweep-2: decline endpoint, verify endpoint, UI wiring
+grep -q 'decline' "$DIR/server.js" && ok "server.js has decline endpoint" || bad "server.js missing decline"
+grep -q 'sub === "verify"' "$DIR/server.js" && ok "server.js has verify endpoint" || bad "server.js missing verify"
+grep -q 'btn-decline' "$DIR/public/index.html" && ok "index.html has decline button" || bad "index.html missing decline button"
+grep -q 'btn-decline' "$DIR/public/app.js" && ok "app.js wires decline action" || bad "app.js missing decline"
+grep -q 'verify-box' "$DIR/public/index.html" && ok "index.html has verify result box" || bad "index.html missing verify box"
+grep -q 'Verify seals' "$DIR/public/app.js" && ok "app.js wires seal verification" || bad "app.js missing verify"
+grep -q 'pill.declined' "$DIR/public/style.css" && ok "style.css has declined pill" || bad "style.css missing declined pill"
+grep -q 'declineNote' "$DIR/public/app.js" && ok "app.js shows declined banner" || bad "app.js missing declined banner"
+
 echo "RESULT: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

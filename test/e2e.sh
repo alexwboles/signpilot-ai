@@ -158,5 +158,52 @@ echo "$A11" | grep -q '"event":"nudge"' && ok "flow11: nudge written to audit tr
 G11=$(curl -s "$BASE/api/documents/$ID11" | py "d['document']['sentAt']")
 echo "$G11" | grep -q 'T' && ok "flow11: sentAt stamped on send" || bad "flow11: sentAt missing"
 
+# ---- Flow 12: decline lifecycle ----
+C12=$(curl -s -X POST "$BASE/api/documents" -H 'Content-Type: application/json' \
+  -d '{"template":"completion","title":"Decline test","fields":{"clientName":"Dan Client","projectRef":"Q-9","workSummary":"test work"}}')
+ID12=$(echo "$C12" | py "d['document']['id']")
+D12A=$(curl -s -X POST "$BASE/api/documents/$ID12/decline" -H 'Content-Type: application/json' -d '{"reason":"too expensive"}')
+echo "$D12A" | grep -q 'only sent documents can be declined' && ok "flow12: decline on draft rejected" || bad "flow12: draft decline: ${D12A:0:150}"
+curl -s -X PATCH "$BASE/api/documents/$ID12" -H 'Content-Type: application/json' -d '{"status":"sent"}' >/dev/null
+D12B=$(curl -s -X POST "$BASE/api/documents/$ID12/decline" -H 'Content-Type: application/json' -d '{"reason":"Price too high"}')
+echo "$D12B" | grep -q '"status":"declined"' && ok "flow12: sent doc declines with reason" || bad "flow12: decline failed: ${D12B:0:200}"
+echo "$D12B" | grep -q 'Price too high' && ok "flow12: decline reason stored" || bad "flow12: reason missing"
+echo "$D12B" | py "d['document']['declinedAt']" | grep -q 'T' && ok "flow12: declinedAt timestamp set" || bad "flow12: no declinedAt"
+A12=$(curl -s "$BASE/api/documents/$ID12/audit")
+echo "$A12" | grep -q '"event":"declined"' && ok "flow12: decline written to audit trail" || bad "flow12: no decline audit"
+S12=$(curl -s -X POST "$BASE/api/documents/$ID12/sign" -H 'Content-Type: application/json' \
+  -d "{\"role\":\"client\",\"name\":\"Dan Client\",\"signature\":\"$SIG\"}")
+echo "$S12" | grep -q 'must be sent before signing' && ok "flow12: declined doc cannot be signed" || bad "flow12: sign after decline: ${S12:0:150}"
+R12=$(curl -s -X PATCH "$BASE/api/documents/$ID12" -H 'Content-Type: application/json' -d '{"status":"draft"}')
+echo "$R12" | grep -q 'invalid transition: declined -> draft' && ok "flow12: declined is terminal (no recall)" || bad "flow12: recall: ${R12:0:150}"
+DEL12=$(curl -s -X DELETE "$BASE/api/documents/$ID12")
+echo "$DEL12" | grep -q 'only draft documents can be deleted' && ok "flow12: declined doc is a permanent record" || bad "flow12: delete: ${DEL12:0:150}"
+DUP12=$(curl -s -X POST "$BASE/api/documents/$ID12/duplicate" -H 'Content-Type: application/json' -d '{}')
+echo "$DUP12" | grep -q '"status":"draft"' && ok "flow12: declined doc duplicates into a fresh draft" || bad "flow12: dup: ${DUP12:0:150}"
+
+# ---- Flow 13: seal verification endpoint ----
+C13=$(curl -s -X POST "$BASE/api/documents" -H 'Content-Type: application/json' \
+  -d '{"template":"completion","title":"Verify test","fields":{"clientName":"Vera","projectRef":"Q-10","workSummary":"original scope"}}')
+ID13=$(echo "$C13" | py "d['document']['id']")
+curl -s -X PATCH "$BASE/api/documents/$ID13" -H 'Content-Type: application/json' -d '{"status":"sent"}' >/dev/null
+curl -s -X POST "$BASE/api/documents/$ID13/sign" -H 'Content-Type: application/json' \
+  -d "{\"role\":\"contractor\",\"name\":\"Alex Contractor\",\"signature\":\"$SIG\"}" >/dev/null
+V13=$(curl -s "$BASE/api/documents/$ID13/verify")
+echo "$V13" | grep -q '"valid":true' && ok "flow13: seals verify clean on untouched doc" || bad "flow13: verify: ${V13:0:200}"
+echo "$V13" | py "d['seals'][0]['role']" | grep -q 'contractor' && ok "flow13: seal detail names the role" || bad "flow13: seal detail"
+# tamper with the document fields on disk, then verify again
+python3 -c "
+import json
+p = '$DIR/data/documents.json'
+docs = json.load(open(p))
+for d in docs:
+    if d['id'] == '$ID13': d['fields']['workSummary'] = 'TAMPERED scope'
+json.dump(docs, open(p, 'w'), indent=2)
+"
+V13B=$(curl -s "$BASE/api/documents/$ID13/verify")
+echo "$V13B" | grep -q '"valid":false' && ok "flow13: edited fields break the seal" || bad "flow13: tamper not detected: ${V13B:0:200}"
+V13C=$(curl -s "$BASE/api/documents/$ID12/verify")
+echo "$V13C" | grep -q '"valid":false' && ok "flow13: doc with no signatures reports valid:false" || bad "flow13: empty seals: ${V13C:0:200}"
+
 echo "RESULT: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

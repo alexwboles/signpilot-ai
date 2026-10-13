@@ -286,3 +286,12 @@ footer.muted { text-align: center; padding: 26px 16px 34px; font-size: 13px; }
   .paper { box-shadow: none; border: none; margin: 0; max-width: none; }
   .view { animation: none; }
 }
+
+/* ---------- sweep-2: declined pill + seal verification ---------- */
+.pill.declined { background: #f3f4f6; color: #4b5563; border-color: #d1d5db; }
+.verify-box { margin: 1rem 0; padding: .9rem 1.1rem; border: 2px solid; border-radius: 0; }
+.verify-box.ok { border-color: #0f766e; background: #eef7f5; color: #0b4f4a; }
+.verify-box.bad { border-color: #b91c1c; background: #fef2f2; color: #7f1d1d; }
+.verify-box ul { margin: .5rem 0 0; padding-left: 1.2rem; }
+.verify-box li.seal-ok { color: #0b4f4a; }
+.verify-box li.seal-bad { color: #b91c1c; font-weight: 700; }
