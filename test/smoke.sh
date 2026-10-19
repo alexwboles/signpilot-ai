@@ -162,5 +162,52 @@ grep -q 'quotelyQuoteId' "$DIR/public/app.js" && ok "app.js reads quotely link f
 grep -q 'notifyQuotely' "$DIR/server.js" && ok "server.js notifies quotely on sign/decline" || bad "server.js missing notifyQuotely"
 grep -q 'QUOTELY_URL' "$DIR/server.js" && ok "server.js honors QUOTELY_URL" || bad "server.js missing QUOTELY_URL"
 
+# 25. v2: draft field correction (prepare step)
+ED=$(curl -s -X POST "$BASE/api/documents" -H 'Content-Type: application/json' \
+  -d '{"template":"quote-approval","title":"Edit test","fields":{"clientName":"Eddy","workDescription":"paint fence","total":500}}')
+EID=$(echo "$ED" | python3 -c "import json,sys; print(json.load(sys.stdin)['document']['id'])" 2>/dev/null)
+PATCH_OK=$(curl -s -X PATCH "$BASE/api/documents/$EID" -H 'Content-Type: application/json' \
+  -d '{"fields":{"clientName":"Eddy Fixed","workDescription":"paint fence + gate","total":650,"validDays":30}}')
+echo "$PATCH_OK" | grep -q 'Eddy Fixed' && ok "PATCH fields updates a draft" || bad "field edit: ${PATCH_OK:0:200}"
+echo "$PATCH_OK" | grep -q '"status":"draft"' && ok "field edit keeps status=draft" || bad "status changed: ${PATCH_OK:0:120}"
+AUD_ED=$(curl -s "$BASE/api/documents/$EID/audit")
+echo "$AUD_ED" | grep -q '"event":"edited"' && ok "field edit writes audit event" || bad "no edited audit: ${AUD_ED:0:150}"
+PATCH_BAD=$(curl -s -X PATCH "$BASE/api/documents/$EID" -H 'Content-Type: application/json' \
+  -d '{"fields":{"clientName":"","workDescription":"x","total":1}}')
+echo "$PATCH_BAD" | grep -q 'Missing required field' && ok "field edit validates required fields" || bad "no validation: ${PATCH_BAD:0:150}"
+curl -s -X PATCH "$BASE/api/documents/$EID" -H 'Content-Type: application/json' -d '{"status":"sent"}' >/dev/null
+PATCH_SENT=$(curl -s -X PATCH "$BASE/api/documents/$EID" -H 'Content-Type: application/json' \
+  -d '{"fields":{"clientName":"Nope","workDescription":"x","total":1}}')
+echo "$PATCH_SENT" | grep -q 'only draft documents can be edited' && ok "field edit rejected on sent doc" || bad "sent edit: ${PATCH_SENT:0:150}"
+PATCH_STATUS=$(curl -s -X PATCH "$BASE/api/documents/$EID" -H 'Content-Type: application/json' -d '{"status":"draft"}')
+echo "$PATCH_STATUS" | grep -q '"status":"draft"' && ok "status PATCH still works alongside fields PATCH" || bad "status patch: ${PATCH_STATUS:0:150}"
+
+# 26. v2: signing-room UI wiring
+for needle in "consent-card:Electronic signature consent card" "consent-check:consent checkbox" "adopted-panel:adopted-signature panel" "btn-adopt-confirm:Adopt and sign button" "btn-adopt:continue-to-adopt button" "completion-panel:completion panel" "cert-section:certificate of completion" "btn-print-cert:print certificate button" "edit-preview:live preview pane" "statstrip:desk stats strip" "signhere-flag:Sign here flag" "ceremony-banner:guided ceremony banner" "edit-fields-panel:draft field-correction panel" "btn-save-fields:save field corrections"; do
+  id="${needle%%:*}"; label="${needle#*:}"
+  grep -q "$id" "$DIR/public/index.html" && ok "index.html has $label" || bad "index.html missing $id"
+done
+for needle in "ceremony-banner:ceremony banner" "showCompletion:completion renderer" "renderCertificate:certificate renderer" "updatePreview:live preview updater" "collectFields:field collector" "btn-save-fields:field-save wiring" "btn-print-cert:print wiring" "btn-completion-pdf:completion PDF wiring" "exportPdf:shared PDF export"; do
+  id="${needle%%:*}"; label="${needle#*:}"
+  grep -q "$id" "$DIR/public/app.js" && ok "app.js has $label" || bad "app.js missing $id"
+done
+grep -q 'only draft documents can be edited' "$DIR/server.js" && ok "server.js has draft-only field edit" || bad "server.js missing field edit"
+grep -q 'Playfair' "$DIR/public/index.html" && ok "v2 loads Playfair Display" || bad "display font missing"
+grep -q '\-\-pine' "$DIR/public/style.css" && ok "v2 identity: ink-green palette" || bad "pine palette missing"
+grep -q '\-\-brass' "$DIR/public/style.css" && ok "v2 identity: brass foil palette" || bad "brass palette missing"
+# true circles (50%) are excepted per standing design rule; only px radii count.
+if grep -E 'border-radius:[^;]*[1-9][0-9]*px' "$DIR/public/style.css" | grep -qv 'border-radius: 0'; then
+  bad "rounded edges found in style.css"
+else
+  ok "no rounded edges in style.css"
+fi
+# ruled notebook lines on the sigpad use repeating-linear-gradient; any other
+# linear-gradient (color wash) would violate the design rules.
+if grep 'linear-gradient(' "$DIR/public/style.css" | grep -vq 'repeating-linear-gradient'; then
+  bad "color gradient found in style.css"
+else
+  ok "no color gradients (sigpad ruled lines only)"
+fi
+
 echo "RESULT: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

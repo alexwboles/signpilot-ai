@@ -6,13 +6,13 @@
 <title>SignPilot AI — local-first e-signature for trades</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <a class="brand" href="#/"><svg class="logo" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> <strong>SignPilot <span style="color:#e8b25e">AI</span></strong> <span class="tag">100% local</span></a>
+    <a class="brand" href="#/"><svg class="logo" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> <strong>SignPilot <span>AI</span></strong> <span class="tag">100% local</span></a>
     <nav>
       <a href="#/" id="nav-list">Documents</a>
       <a href="#/new" id="nav-new" class="btn">+ New document</a>
@@ -23,8 +23,26 @@
 <main id="app">
   <!-- list view -->
   <section id="view-list" class="view">
-    <h1>Documents</h1>
-    <p class="lede">Create an approval, send it to the client, capture signatures — all in this browser. No accounts, no per-envelope fees.</p>
+    <div class="pagehead">
+      <div>
+        <h1>The signing room</h1>
+        <p class="lede">Prepare an approval, send it to the client, capture signatures — all on this machine. No accounts, no per-envelope fees.</p>
+      </div>
+    </div>
+    <div class="statstrip" id="statstrip">
+      <button type="button" class="stat" data-f="attention">
+        <span class="stat-num" id="stat-attention">0</span>
+        <span class="stat-label">Need attention</span>
+      </button>
+      <button type="button" class="stat" data-f="sent">
+        <span class="stat-num" id="stat-sent">0</span>
+        <span class="stat-label">Awaiting signatures</span>
+      </button>
+      <button type="button" class="stat" data-f="signed">
+        <span class="stat-num" id="stat-signed">0</span>
+        <span class="stat-label">Fully executed</span>
+      </button>
+    </div>
     <div class="seg" role="tablist" aria-label="Filter by status">
       <button class="seg-btn" data-f="attention">Needs attention <b id="cnt-attention">0</b></button>
       <button class="seg-btn active" data-f="">All <b id="cnt-all">0</b></button>
@@ -44,20 +62,28 @@
     </div>
   </section>
 
-  <!-- editor view -->
+  <!-- editor view: prepare the document -->
   <section id="view-edit" class="view hidden">
-    <h1>New document</h1>
-    <p class="lede">Pick a template, fill in the fields, save a draft.</p>
+    <h1>Prepare document</h1>
+    <p class="lede">Pick a template, fill in the fields, and check the live preview — this is exactly the paper the client will see.</p>
     <div class="tpl-gallery" id="tpl-gallery" role="radiogroup" aria-label="Choose a template"></div>
-    <div class="sheet">
-      <label>Document title <input id="f-title" type="text" placeholder="e.g. Smith kitchen remodel — quote approval"></label>
-      <p class="template-blurb" id="template-blurb"></p>
-      <div id="template-fields"></div>
-      <div class="row">
-        <button id="btn-save-doc" class="btn primary">Save draft</button>
-        <a href="#/" class="btn ghost">Cancel</a>
+    <div class="prepare">
+      <div class="sheet">
+        <label>Document title <input id="f-title" type="text" placeholder="e.g. Smith kitchen remodel — quote approval"></label>
+        <p class="template-blurb" id="template-blurb"></p>
+        <div id="template-fields"></div>
+        <div class="row">
+          <button id="btn-save-doc" class="btn primary">Save draft</button>
+          <a href="#/" class="btn ghost">Cancel</a>
+        </div>
+        <p class="muted" id="edit-msg"></p>
       </div>
-      <p class="muted" id="edit-msg"></p>
+      <div class="preview-col">
+        <h3 class="preview-head">Live preview</h3>
+        <div class="paperstack">
+          <div id="edit-preview" class="paper preview"></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -71,7 +97,34 @@
             <span id="doc-status" class="pill"></span>
           </div>
         </div>
-        <div id="doc-body" class="paper"></div>
+        <div id="edit-fields-panel" class="editpanel hidden">
+          <h3>Correct draft fields</h3>
+          <p class="muted">Only drafts can be edited — sent and signed documents are permanent records.</p>
+          <div id="edit-fields"></div>
+          <div class="row">
+            <button id="btn-save-fields" class="btn primary">Save changes</button>
+            <button id="btn-cancel-fields" class="btn ghost">Cancel</button>
+          </div>
+          <p class="muted" id="edit-fields-msg"></p>
+        </div>
+        <div class="paperstack">
+          <div id="doc-body" class="paper"></div>
+        </div>
+        <div id="cert-section" class="cert hidden">
+          <div class="cert-inner">
+            <div class="cert-kicker">SignPilot AI · Certificate of completion</div>
+            <h2 id="cert-title"></h2>
+            <div class="cert-meta" id="cert-meta"></div>
+            <div class="cert-stamp" aria-hidden="true">Sealed</div>
+            <h3>Signer events</h3>
+            <div id="cert-events"></div>
+            <h3>Seal record</h3>
+            <div id="cert-seals" class="muted"></div>
+            <div class="row">
+              <button id="btn-print-cert" class="btn ghost">Print certificate</button>
+            </div>
+          </div>
+        </div>
       </div>
       <aside class="docrail">
         <div class="railcard">
@@ -113,38 +166,78 @@
     </div>
   </section>
 
-  <!-- signing view -->
+  <!-- signing ceremony -->
   <section id="view-sign" class="view hidden">
-    <div class="steps" aria-label="Signing progress">
-      <div class="step done"><span class="stepnum">1</span> Review</div>
-      <div class="step current"><span class="stepnum">2</span> Sign</div>
-      <div class="step"><span class="stepnum">3</span> Done</div>
-    </div>
-    <h1 id="sign-title" class="signtitle"></h1>
-    <div id="sign-body" class="paper"></div>
-    <div class="sign-desk">
-      <h3>Sign here</h3>
-      <p class="muted">Draw your signature on the pad below. It is captured on this device only.</p>
-      <div class="row">
-        <label>Signing as
-          <select id="sign-role">
-            <option value="client">Client</option>
-            <option value="contractor">Contractor</option>
-          </select>
-        </label>
-        <label>Printed name <input id="sign-name" type="text" placeholder="Full name"></label>
+    <div class="ceremony">
+      <div class="steps" id="ceremony-steps" aria-label="Signing progress">
+        <div class="step done" data-s="1"><span class="stepnum">1</span> Review</div>
+        <div class="step current" data-s="2"><span class="stepnum">2</span> Sign</div>
+        <div class="step" data-s="3"><span class="stepnum">3</span> Done</div>
       </div>
-      <canvas id="sigpad" width="600" height="200" aria-label="Signature pad"></canvas>
-      <div class="row">
-        <label>Or type it <input id="sign-typed" type="text" placeholder="Type your name"></label>
-        <button id="btn-stamp-sig" class="btn ghost" type="button">Use typed signature</button>
+      <div class="ceremony-banner" id="ceremony-banner"></div>
+      <h1 id="sign-title" class="signtitle"></h1>
+      <div class="paperstack">
+        <div id="sign-body" class="paper"></div>
       </div>
-      <div class="row">
-        <button id="btn-clear-sig" class="btn ghost">Clear</button>
-        <button id="btn-sign" class="btn primary">Sign document</button>
-        <button id="btn-decline" class="btn ghost danger">Decline to sign</button>
+
+      <div class="consent-card" id="consent-card">
+        <h3>Electronic signature consent</h3>
+        <p class="disclosure">By checking this box you agree that (1) you have reviewed the document above, (2) you consent to do business electronically and to sign this document with an electronic signature, and (3) your electronic signature carries the same legal effect as a handwritten signature. The signature, your name, and the time of signing are recorded in this document's audit trail and sealed with a tamper-evident hash stored on the contractor's machine.</p>
+        <label class="consent-line"><input type="checkbox" id="consent-check"> I agree to use electronic records and signatures for this document.</label>
       </div>
-      <p class="muted" id="sign-msg"></p>
+
+      <div class="sign-desk" id="sign-desk">
+        <div class="signhere-flag" aria-hidden="true">Sign here</div>
+        <h3>Adopt your signature</h3>
+        <p class="muted">Choose who is signing, then draw on the pad or type your name — you'll confirm the adopted mark before it counts.</p>
+        <div class="row">
+          <label>Signing as
+            <select id="sign-role">
+              <option value="client">Client</option>
+              <option value="contractor">Contractor</option>
+            </select>
+          </label>
+          <label>Printed name <input id="sign-name" type="text" placeholder="Full name"></label>
+        </div>
+        <canvas id="sigpad" width="600" height="200" aria-label="Signature pad"></canvas>
+        <div class="row">
+          <label>Or type it <input id="sign-typed" type="text" placeholder="Type your name"></label>
+          <button id="btn-stamp-sig" class="btn ghost" type="button">Use typed signature</button>
+        </div>
+        <div class="row">
+          <button id="btn-clear-sig" class="btn ghost">Clear</button>
+          <button id="btn-adopt" class="btn primary">Continue — adopt signature</button>
+          <button id="btn-decline" class="btn ghost danger">Decline to sign</button>
+        </div>
+        <p class="muted" id="sign-msg"></p>
+      </div>
+
+      <div id="adopted-panel" class="adopted hidden">
+        <h3>Confirm your adopted signature</h3>
+        <div class="adopted-mark">
+          <img id="adopted-img" alt="Your adopted signature">
+          <div class="adopted-name" id="adopted-name"></div>
+          <div class="muted" id="adopted-role"></div>
+        </div>
+        <p class="muted">This mark will be recorded as your legal signature on this document, sealed with a tamper-evident hash.</p>
+        <div class="row">
+          <button id="btn-adopt-confirm" class="btn primary">Adopt and sign</button>
+          <button id="btn-adopt-redraw" class="btn ghost">Redraw</button>
+        </div>
+        <p class="muted" id="adopt-msg"></p>
+      </div>
+
+      <div id="completion-panel" class="completion hidden">
+        <div class="completion-stamp" aria-hidden="true">Executed</div>
+        <h3>Document fully executed</h3>
+        <p class="muted" id="completion-text"></p>
+        <div id="completion-seals" class="completion-seals"></div>
+        <div class="row">
+          <button id="btn-completion-pdf" class="btn primary">Download signed PDF</button>
+          <a id="btn-completion-doc" class="btn ghost" href="#/">View document</a>
+        </div>
+        <p class="muted" id="completion-msg"></p>
+      </div>
     </div>
   </section>
 </main>

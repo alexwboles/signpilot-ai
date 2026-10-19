@@ -257,5 +257,39 @@ stop_srv
 start_srv
 ok "flow14: stub torn down, server back without QUOTELY_URL"
 
+# ---- Flow 15: draft field correction (prepare step) ----
+C15=$(curl -s -X POST "$BASE/api/documents" -H 'Content-Type: application/json' \
+  -d '{"template":"quote-approval","title":"Field edit test","fields":{"clientName":"Orig Name","workDescription":"deck stain","total":900,"validDays":30}}')
+ID15=$(echo "$C15" | py "d['document']['id']")
+P15=$(curl -s -X PATCH "$BASE/api/documents/$ID15" -H 'Content-Type: application/json' \
+  -d '{"fields":{"clientName":"Corrected Name","workDescription":"deck stain + rail","total":1100,"validDays":30}}')
+echo "$P15" | py "d['document']['fields']['clientName']" | grep -q 'Corrected Name' && ok "flow15: PATCH fields corrects client name" || bad "flow15: name: ${P15:0:150}"
+echo "$P15" | py "d['document']['fields']['total']" | grep -q '1100' && ok "flow15: PATCH fields corrects total" || bad "flow15: total"
+echo "$P15" | grep -q '"status":"draft"' && ok "flow15: field edit keeps draft status" || bad "flow15: status changed"
+A15=$(curl -s "$BASE/api/documents/$ID15/audit")
+echo "$A15" | grep -q '"event":"edited"' && ok "flow15: edit writes audit event" || bad "flow15: no edited event"
+P15B=$(curl -s -X PATCH "$BASE/api/documents/$ID15" -H 'Content-Type: application/json' \
+  -d '{"fields":{"clientName":"","workDescription":"x","total":1}}')
+echo "$P15B" | grep -q 'Missing required field' && ok "flow15: invalid fields rejected on edit" || bad "flow15: ${P15B:0:150}"
+# edited values survive the full signing lifecycle
+curl -s -X PATCH "$BASE/api/documents/$ID15" -H 'Content-Type: application/json' -d '{"status":"sent"}' >/dev/null
+curl -s -X POST "$BASE/api/documents/$ID15/sign" -H 'Content-Type: application/json' \
+  -d "{\"role\":\"contractor\",\"name\":\"Alex Contractor\",\"signature\":\"$SIG\"}" >/dev/null
+F15=$(curl -s -X POST "$BASE/api/documents/$ID15/sign" -H 'Content-Type: application/json' \
+  -d "{\"role\":\"client\",\"name\":\"Corrected Name\",\"signature\":\"$SIG\"}")
+echo "$F15" | grep -q '"status":"signed"' && ok "flow15: edited draft still signs to completion" || bad "flow15: sign: ${F15:0:150}"
+echo "$F15" | py "d['document']['fields']['workDescription']" | grep -q 'deck stain + rail' && ok "flow15: corrected values persist on signed doc" || bad "flow15: persistence"
+P15C=$(curl -s -X PATCH "$BASE/api/documents/$ID15" -H 'Content-Type: application/json' \
+  -d '{"fields":{"clientName":"X","workDescription":"x","total":1}}')
+echo "$P15C" | grep -q 'only draft documents can be edited' && ok "flow15: signed doc refuses field edits" || bad "flow15: ${P15C:0:150}"
+# pipeline link fields ride along with a field edit
+C15D=$(curl -s -X POST "$BASE/api/documents" -H 'Content-Type: application/json' \
+  -d '{"template":"quote-approval","title":"Link edit test","fields":{"clientName":"Linky","workDescription":"x","total":50,"quotelyQuoteId":"q_keep","quotelyPurpose":"approval"}}')
+ID15D=$(echo "$C15D" | py "d['document']['id']")
+P15D=$(curl -s -X PATCH "$BASE/api/documents/$ID15D" -H 'Content-Type: application/json' \
+  -d '{"fields":{"clientName":"Linky2","workDescription":"x","total":55,"quotelyQuoteId":"q_keep","quotelyPurpose":"approval"}}')
+echo "$P15D" | grep -q '"quotelyQuoteId":"q_keep"' && ok "flow15: field edit preserves pipeline link fields" || bad "flow15: link: ${P15D:0:150}"
+
+
 echo "RESULT: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

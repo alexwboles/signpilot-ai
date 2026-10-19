@@ -321,6 +321,22 @@ async function handle(req, res) {
 
     if (m === "PATCH" && !sub) {
       const body = await readBody(req);
+      // Prepare step: correct a draft's field values before sending.
+      // Draft-only; validated the same way as creation; audit-logged.
+      if (body.fields !== undefined && body.status === undefined) {
+        if (doc.status !== "draft") {
+          return sendJSON(res, 400, {
+            ok: false,
+            error: "only draft documents can be edited (status: " + doc.status + ")"
+          });
+        }
+        const errs = Templates.validateFields(doc.template, body.fields);
+        if (errs.length) return sendJSON(res, 400, { ok: false, errors: errs });
+        doc.fields = body.fields;
+        audit(doc, "edited", "Draft fields updated before sending.");
+        writeDocs(docs);
+        return sendJSON(res, 200, { ok: true, document: doc });
+      }
       const to = body.status;
       const okTrans =
         (doc.status === "draft" && to === "sent") ||

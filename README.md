@@ -10,8 +10,13 @@ Built as a free alternative to paid e-signature tools (and to AGPL-licensed opti
 - **Draw-to-sign canvas** — hand-rolled signature pad (no libraries), works with mouse, touch, and stylus
 - **Approval pipeline** — draft → sent → signed, with recall-to-draft and terminal signed state
 - **Signed PDF export** — generated locally in your browser with pdf-lib (MIT, vendored in `public/vendor/`); includes signatures and the full audit trail
-- **Audit trail** — every lifecycle event timestamped (created, sent, signed, completed, recalled, duplicated)
+- **Audit trail** — every lifecycle event timestamped (created, edited, sent, signed, completed, recalled, duplicated, declined, nudge)
 - **Duplicate documents** — one click clones any document into a fresh draft (new number, no signatures)
+- **Prepare step** — correct a draft's field values before sending (draft-only, validated, audit-logged as `edited`); sent/signed/declined documents are permanent records and refuse edits
+- **Live preview** — the New Document editor shows the exact paper updating as you type
+- **Signing ceremony** — electronic-signature consent disclosure (required), a guided status banner, Sign Here flags, and an adopt-your-signature confirmation panel with a preview of the mark before it counts; when both parties sign, a completion panel shows the seals and offers the signed PDF
+- **Certificate of completion** — printable completion record on every signed document: signer events with timestamps, seal hashes, and seal-verification callout (print CSS keeps paper + certificate only)
+- **Desk stats strip** — Needs attention / Awaiting signatures / Fully executed counts that double as filter shortcuts
 - **Quote expiry tracking** — quote-approval drafts show "expires in N days" badges and an in-document validity notice based on the quote's `validDays`
 - **Search + status filter** — find documents by title, client, number, or template across the list
 - **CSV export** — download the whole document ledger (`GET /api/documents/export.csv`) for bookkeeping; signature blobs never included
@@ -50,7 +55,7 @@ No API keys. No network calls (except the optional quotely-ai callback above). O
 - `GET /api/documents` — list (signature image blobs omitted for privacy)
 - `POST /api/documents` — `{template, title, fields}` → draft document
 - `GET /api/documents/:id`
-- `PATCH /api/documents/:id` — `{status: "sent"|"draft"}` (signed is terminal)
+- `PATCH /api/documents/:id` — `{status: "sent"|"draft"}` (signed/declined are terminal) **or** `{fields: {...}}` to correct a draft's field values (draft-only, validated, audit-logged)
 - `POST /api/documents/:id/sign` — `{role: "client"|"contractor", name, signature}` (PNG data URL); both roles signed → `signed`
 - `POST /api/documents/:id/duplicate` — clone any document into a fresh draft (new id + number, no signatures)
 - `DELETE /api/documents/:id` — delete a draft only (sent/signed are permanent records)
