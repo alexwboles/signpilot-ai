@@ -338,7 +338,8 @@
       if (d.status === "draft") {
         btn("Mark as sent", "primary", function () {
           api("/api/documents/" + id, { method: "PATCH", body: { status: "sent" } })
-            .then(function () { renderDoc(id); });
+            .then(function () { renderDoc(id); })
+            .catch(function (e) { alert("Error: " + e.message); });
         });
         btn("Delete draft", "ghost danger", function () {
           if (!confirm("Delete draft " + d.number + "? This cannot be undone.")) return;
@@ -356,7 +357,8 @@
         });
         btn("Recall to draft", "ghost", function () {
           api("/api/documents/" + id, { method: "PATCH", body: { status: "draft" } })
-            .then(function () { renderDoc(id); });
+            .then(function () { renderDoc(id); })
+            .catch(function (e) { alert("Error: " + e.message); });
         });
       }
       btn("Duplicate", "ghost", function () {
@@ -398,6 +400,9 @@
           return "<li><time>" + esc(e.ts.slice(0, 16).replace("T", " ")) + "</time><strong>" +
             esc(e.event) + "</strong> — " + esc(e.detail) + "</li>";
         }).join("");
+      }).catch(function (e) {
+        document.getElementById("doc-audit").innerHTML =
+          '<li class="muted">Audit trail unavailable: ' + esc(e.message) + "</li>";
       });
 
       document.getElementById("btn-pdf").onclick = function () { exportPdf(d); };
@@ -409,8 +414,13 @@
   document.getElementById("btn-copy-link").addEventListener("click", function () {
     var i = document.getElementById("sign-link");
     i.select();
-    if (navigator.clipboard) navigator.clipboard.writeText(i.value);
-    else document.execCommand("copy");
+    function legacy() {
+      try { document.execCommand("copy"); }
+      catch (e) { alert("Copy failed — select and copy the link manually."); }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(i.value).catch(legacy);
+    } else legacy();
   });
 
   /* ---------- signing ---------- */
