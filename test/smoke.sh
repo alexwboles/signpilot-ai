@@ -148,5 +148,19 @@ grep -q 'btn-verify' "$DIR/public/app.js" && ok "app.js wires seal verification"
 grep -q 'pill.declined' "$DIR/public/style.css" && ok "style.css has declined pill" || bad "style.css missing declined pill"
 grep -q 'declineNote' "$DIR/public/app.js" && ok "app.js shows declined banner" || bad "app.js missing declined banner"
 
+# 23. quotely pipeline link fields are stored on the document
+DQ=$(curl -s -X POST "$BASE/api/documents" -H 'Content-Type: application/json' \
+  -d '{"template":"quote-approval","title":"Pipeline link test","fields":{"clientName":"Link Guy","workDescription":"x","total":100,"quotelyQuoteId":"q_abc123","quotelyQuoteNumber":"Q-2026-0042","quotelyPurpose":"approval"}}')
+DQID=$(echo "$DQ" | python3 -c "import json,sys; print(json.load(sys.stdin)['document']['id'])" 2>/dev/null)
+echo "$DQ" | grep -q '"quotelyQuoteId":"q_abc123"' && ok "quotely link fields stored on document" || bad "link fields: ${DQ:0:200}"
+echo "$DQ" | grep -q '"quotelyPurpose":"approval"' && ok "quotely purpose stored" || bad "purpose missing"
+
+# 24. pipeline UI wiring
+grep -q 'quote-link-box' "$DIR/public/index.html" && ok "index.html has linked-quote rail card" || bad "index.html missing quote-link-box"
+grep -q 'quote-link-box' "$DIR/public/app.js" && ok "app.js populates linked-quote card" || bad "app.js missing quote link"
+grep -q 'quotelyQuoteId' "$DIR/public/app.js" && ok "app.js reads quotely link fields" || bad "app.js missing field read"
+grep -q 'notifyQuotely' "$DIR/server.js" && ok "server.js notifies quotely on sign/decline" || bad "server.js missing notifyQuotely"
+grep -q 'QUOTELY_URL' "$DIR/server.js" && ok "server.js honors QUOTELY_URL" || bad "server.js missing QUOTELY_URL"
+
 echo "RESULT: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

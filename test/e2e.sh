@@ -205,5 +205,57 @@ echo "$V13B" | grep -q '"valid":false' && ok "flow13: edited fields break the se
 V13C=$(curl -s "$BASE/api/documents/$ID12/verify")
 echo "$V13C" | grep -q '"valid":false' && ok "flow13: doc with no signatures reports valid:false" || bad "flow13: empty seals: ${V13C:0:200}"
 
+# ---- Flow 14: quotely pipeline callbacks (stub quotely-ai) ----
+STUBCB_PORT=3497
+node "$DIR/test/stub-quotely-cb.js" "$STUBCB_PORT" >/tmp/stub-quotely-cb.log 2>&1 &
+STUBCB=$!
+sleep 1
+kill -0 $STUBCB 2>/dev/null || { bad "stub quotely-callback failed to boot"; cat /tmp/stub-quotely-cb.log; }
+stop_srv
+export QUOTELY_URL="http://localhost:$STUBCB_PORT"
+start_srv
+C14=$(curl -s -X POST "$BASE/api/documents" -H 'Content-Type: application/json' \
+  -d '{"template":"quote-approval","title":"Callback test","fields":{"clientName":"Cal Back","quoteNumber":"Q-2026-0042","workDescription":"panel upgrade","total":350,"validDays":30,"quotelyQuoteId":"q_pipe1","quotelyQuoteNumber":"Q-2026-0042","quotelyPurpose":"approval"}}')
+ID14=$(echo "$C14" | py "d['document']['id']")
+curl -s -X PATCH "$BASE/api/documents/$ID14" -H 'Content-Type: application/json' -d '{"status":"sent"}' >/dev/null
+curl -s -X POST "$BASE/api/documents/$ID14/sign" -H 'Content-Type: application/json' \
+  -d "{\"role\":\"contractor\",\"name\":\"Alex Contractor\",\"signature\":\"$SIG\"}" >/dev/null
+curl -s -X POST "$BASE/api/documents/$ID14/sign" -H 'Content-Type: application/json' \
+  -d "{\"role\":\"client\",\"name\":\"Cal Back\",\"signature\":\"$SIG\"}" >/dev/null
+CALLS14=$(curl -s "http://localhost:$STUBCB_PORT/stub/calls")
+echo "$CALLS14" | py "d['calls'][0]['quoteId']" | grep -q 'q_pipe1' && ok "flow14: signed doc fires quotely callback for q_pipe1" || bad "flow14: no callback: ${CALLS14:0:200}"
+echo "$CALLS14" | py "d['calls'][0]['body']['status']" | grep -q 'signed' && ok "flow14: callback reports signed" || bad "flow14: status wrong"
+echo "$CALLS14" | py "d['calls'][0]['body']['purpose']" | grep -q 'approval' && ok "flow14: callback carries purpose=approval" || bad "flow14: purpose wrong"
+echo "$CALLS14" | py "d['calls'][0]['body']['docNumber']" | grep -q 'SP-' && ok "flow14: callback carries the SP- document number" || bad "flow14: docNumber"
+# decline flow -> declined callback with reason
+C14B=$(curl -s -X POST "$BASE/api/documents" -H 'Content-Type: application/json' \
+  -d '{"template":"change-order","title":"Decline cb test","fields":{"clientName":"Dan Client","projectRef":"Q-9","changeDescription":"extra work","costDelta":200,"quotelyQuoteId":"q_pipe2","quotelyPurpose":"change-order","quotelyChangeOrderId":"co_1"}}')
+ID14B=$(echo "$C14B" | py "d['document']['id']")
+curl -s -X PATCH "$BASE/api/documents/$ID14B" -H 'Content-Type: application/json' -d '{"status":"sent"}' >/dev/null
+curl -s -X POST "$BASE/api/documents/$ID14B/decline" -H 'Content-Type: application/json' -d '{"reason":"too expensive"}' >/dev/null
+CALLS14B=$(curl -s "http://localhost:$STUBCB_PORT/stub/calls")
+echo "$CALLS14B" | py "[c for c in d['calls'] if c['quoteId']=='q_pipe2'][0]['body']['status']" | grep -q 'declined' \
+  && ok "flow14: declined doc fires declined callback" || bad "flow14: decline callback missing"
+echo "$CALLS14B" | py "[c for c in d['calls'] if c['quoteId']=='q_pipe2'][0]['body']['declineReason']" | grep -q 'too expensive' \
+  && ok "flow14: decline callback carries the reason" || bad "flow14: reason missing"
+echo "$CALLS14B" | py "[c for c in d['calls'] if c['quoteId']=='q_pipe2'][0]['body']['changeOrderId']" | grep -q 'co_1' \
+  && ok "flow14: change-order callback carries the change order id" || bad "flow14: co id missing"
+# document without quotely link fields -> no callback, signing unaffected
+C14C=$(curl -s -X POST "$BASE/api/documents" -H 'Content-Type: application/json' \
+  -d '{"template":"completion","title":"No link","fields":{"clientName":"Solo","projectRef":"Q-1","workSummary":"x"}}')
+ID14C=$(echo "$C14C" | py "d['document']['id']")
+curl -s -X PATCH "$BASE/api/documents/$ID14C" -H 'Content-Type: application/json' -d '{"status":"sent"}' >/dev/null
+curl -s -X POST "$BASE/api/documents/$ID14C/sign" -H 'Content-Type: application/json' \
+  -d "{\"role\":\"client\",\"name\":\"Solo\",\"signature\":\"$SIG\"}" >/dev/null
+curl -s -X POST "$BASE/api/documents/$ID14C/sign" -H 'Content-Type: application/json' \
+  -d "{\"role\":\"contractor\",\"name\":\"Alex Contractor\",\"signature\":\"$SIG\"}" >/dev/null
+N14=$(curl -s "http://localhost:$STUBCB_PORT/stub/calls" | py "len(d['calls'])")
+[ "$N14" = "2" ] && ok "flow14: unlinked doc signs fine with no callback" || bad "flow14: unexpected callbacks: $N14"
+kill $STUBCB 2>/dev/null; wait $STUBCB 2>/dev/null
+unset QUOTELY_URL
+stop_srv
+start_srv
+ok "flow14: stub torn down, server back without QUOTELY_URL"
+
 echo "RESULT: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

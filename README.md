@@ -31,7 +31,17 @@ npm start
 npm test                  # smoke + end-to-end tests
 ```
 
-No API keys. No network calls. Optional `OPENAI_API_KEY` is not used by this app — there is nothing to enhance; the whole product is local by design.
+Pipeline wiring (optional): point `QUOTELY_URL` at your quotely-ai server
+(e.g. `QUOTELY_URL=http://localhost:3001 node server.js`). Documents that
+quotely-ai creates carry `quotelyQuoteId` / `quotelyPurpose`
+(`approval`|`change-order`|`completion`) / `quotelyChangeOrderId` in their
+fields; signing or declining such a document POSTs back to
+`POST {QUOTELY_URL}/api/quotes/:id/signpilot-callback` so the quote's pipeline
+status stays in sync (signed → approval recorded; declined approval → the
+quote reopens to `sent`). Unlinked documents behave exactly as before, and a
+failed callback never blocks signing.
+
+No API keys. No network calls (except the optional quotely-ai callback above). Optional `OPENAI_API_KEY` is not used by this app — there is nothing to enhance; the whole product is local by design.
 
 ## API
 

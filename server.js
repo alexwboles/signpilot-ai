@@ -21,6 +21,51 @@ const ROOT = path.join(__dirname, "public");
 const DATA_DIR = path.join(__dirname, "data");
 const DATA_FILE = path.join(DATA_DIR, "documents.json");
 
+/* Trades pipeline: when a document carries quotely link fields
+ * (quotelyQuoteId, quotelyPurpose, quotelyChangeOrderId — set by
+ * quotely-ai when it requests the document), signing or declining it
+ * notifies quotely-ai so the quote's pipeline status stays in sync.
+ * Set QUOTELY_URL (e.g. http://localhost:3001) to enable. Local-only,
+ * best-effort: a failed callback never blocks signing. */
+const QUOTELY_URL = (process.env.QUOTELY_URL || "").replace(/\/+$/, "");
+
+function notifyQuotely(doc, status) {
+  const quoteId = doc.fields && doc.fields.quotelyQuoteId;
+  if (!QUOTELY_URL || !quoteId) return Promise.resolve({ ok: false, skipped: true });
+  const payload = {
+    docId: doc.id,
+    docNumber: doc.number,
+    template: doc.template,
+    purpose: (doc.fields && doc.fields.quotelyPurpose) || "approval",
+    changeOrderId: (doc.fields && doc.fields.quotelyChangeOrderId) || null,
+    quoteNumber: (doc.fields && doc.fields.quotelyQuoteNumber) || null,
+    status: status,
+    signedAt: doc.signedAt || null,
+    declinedAt: doc.declinedAt || null,
+    declineReason: doc.declineReason || ""
+  };
+  const body = JSON.stringify(payload);
+  return new Promise((resolve) => {
+    let u;
+    try { u = new URL(QUOTELY_URL + "/api/quotes/" + encodeURIComponent(quoteId) + "/signpilot-callback"); }
+    catch (e) { return resolve({ ok: false, error: "bad url" }); }
+    const lib = u.protocol === "https:" ? require("https") : http;
+    const req = lib.request({
+      hostname: u.hostname, port: u.port || (u.protocol === "https:" ? 443 : 80),
+      path: u.pathname, method: "POST",
+      headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) },
+      timeout: 4000
+    }, (res) => {
+      res.on("data", () => {});
+      res.on("end", () => resolve({ ok: res.statusCode >= 200 && res.statusCode < 300, status: res.statusCode }));
+    });
+    req.on("error", (e) => resolve({ ok: false, error: e.message }));
+    req.on("timeout", () => { req.destroy(); resolve({ ok: false, error: "timeout" }); });
+    req.write(body);
+    req.end();
+  });
+}
+
 const MIME = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -331,6 +376,8 @@ async function handle(req, res) {
         doc.status = "signed";
         doc.signedAt = ts;
         audit(doc, "completed", "Both parties signed — document is fully executed.");
+        // Pipeline callback (best-effort, never blocks signing).
+        try { await notifyQuotely(doc, "signed"); } catch (e) { /* local-only: ignore */ }
       }
       writeDocs(docs);
       return sendJSON(res, 200, { ok: true, document: doc });
@@ -348,6 +395,8 @@ async function handle(req, res) {
       doc.declinedAt = nowISO();
       doc.declineReason = reason;
       audit(doc, "declined", reason ? "Client declined to sign: " + reason : "Client declined to sign.");
+      // Pipeline callback (best-effort, never blocks the decline).
+      try { await notifyQuotely(doc, "declined"); } catch (e) { /* local-only: ignore */ }
       writeDocs(docs);
       return sendJSON(res, 200, { ok: true, document: doc });
     }

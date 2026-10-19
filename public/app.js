@@ -393,6 +393,18 @@
           location.origin + location.pathname + "#/sign/" + id;
       } else sendBox.classList.add("hidden");
 
+      // Trades-pipeline link: documents created by quotely-ai carry
+      // quotelyQuoteId / quotelyPurpose in their fields.
+      var qlBox = document.getElementById("quote-link-box");
+      var qlId = d.fields && d.fields.quotelyQuoteId;
+      if (qlId) {
+        qlBox.classList.remove("hidden");
+        var purpose = (d.fields.quotelyPurpose || "approval").replace(/-/g, " ");
+        document.getElementById("quote-link-text").textContent =
+          "From Quotely " + (d.fields.quotelyQuoteNumber || "") + " (" + purpose + "). " +
+          "Signing or declining this document updates the quote's pipeline status automatically.";
+      } else qlBox.classList.add("hidden");
+
       document.getElementById("pdf-box").classList.toggle("hidden", d.status !== "signed");
 
       api("/api/documents/" + id + "/audit").then(function (a) {
